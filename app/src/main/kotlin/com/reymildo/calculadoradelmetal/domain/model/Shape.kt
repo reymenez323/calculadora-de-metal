@@ -196,10 +196,16 @@ sealed class Shape(val id: String, val requiredDimensions: List<DimensionType>) 
     }
 
     companion object {
-        val ALL: List<Shape> = listOf(
-            RoundBar, SquareBar, RectangularBar, HexBar, Plate,
-            RoundTube, RectangularTube, Angle, Channel, IBeam, TBar,
-        )
+        // `by lazy` defers building this list until first access, after every nested
+        // object below is fully loaded. Building it eagerly can race Android's (ART)
+        // class-initialization order for sealed-class + nested-object singletons and
+        // yield a null entry (observed as a NullPointerException deep in a consumer).
+        val ALL: List<Shape> by lazy {
+            listOf(
+                RoundBar, SquareBar, RectangularBar, HexBar, Plate,
+                RoundTube, RectangularTube, Angle, Channel, IBeam, TBar,
+            )
+        }
 
         fun fromId(id: String): Shape =
             ALL.firstOrNull { it.id == id }
