@@ -1,4 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Calculadora de Metal</string>
+
+    <string name="tab_calc">Calcular</string>
+    <string name="tab_suppliers">Proveedores</string>
+    <string name="tab_settings">Configuración</string>
+
+    <string name="common_cancel">Cancelar</string>
+    <string name="common_save">Guardar</string>
+    <string name="common_close">Cerrar</string>
+
+    <string name="calc_subtitle">Elige la forma del material</string>
+    <string name="calc_dimensions">Dimensiones de la pieza</string>
+    <string name="calc_material">Material</string>
+    <string name="calc_choose_material">Elegir material</string>
+    <string name="calc_material_hint">Brutos agrupados por proveedor</string>
+    <string name="calc_manual_cost">Costo manual por pieza</string>
+    <string name="calc_manual_cost_hint">Opcional, ignora el material</string>
+    <string name="calc_quantity">Cantidad de piezas</string>
+    <string name="calc_total_cost">Costo total</string>
+    <string name="calc_pieces_suffix">piezas</string>
+    <string name="calc_per_piece">Por pieza</string>
+    <string name="calc_volume">Volumen</string>
+    <string name="calc_rate">Costo / cm³</string>
+    <string name="calc_rate_manual">manual</string>
+    <string name="calc_error_incomplete">Completa todas las dimensiones de la pieza.</string>
+    <string name="calc_error_quantity">La cantidad de piezas debe ser mayor que cero.</string>
+    <string name="calc_error_no_price">Este material no tiene costo configurado. Ponle precio en Proveedores o usa un costo manual.</string>
+    <string name="calc_shape_mismatch">⚠ El bruto se vende en otra forma: su costo por cm³ no corresponde a esta pieza.</string>
+    <string name="calc_material_sheet_title">Elegir material</string>
+    <string name="calc_material_search">Buscar material o proveedor</string>
+
+    <string name="material_no_price">sin precio</string>
+    <string name="material_tap_to_configure">toca para configurar</string>
+    <string name="material_filter_note">Solo materiales que el proveedor vende como %1$s.</string>
+    <string name="material_filter_all_note">Mostrando todas las formas. Usar otra forma distorsiona el costo por cm³.</string>
+    <string name="material_empty_for_shape">Ningún proveedor tiene %1$s configurada. Añádela en Proveedores o usa un costo manual.</string>
+    <string name="material_empty_search">Ningún material coincide con la búsqueda.</string>
+    <string name="material_show_all">Ver los otros %1$d materiales de otras formas</string>
+    <string name="material_show_compatible">Ver solo %1$s</string>
+
+    <string name="sup_subtitle">Materia prima y costo del material en bruto</string>
+    <string name="sup_material_count_one">1 material</string>
+    <string name="sup_material_count_other">%1$d materiales</string>
+    <string name="sup_builtin">de fábrica</string>
+    <string name="sup_add_material">+ Añadir material</string>
+    <string name="sup_add_supplier">+ Añadir proveedor</string>
+    <string name="sup_new_supplier">Nuevo proveedor</string>
+    <string name="sup_supplier_name">Nombre del proveedor</string>
+
+    <string name="form_new">Nuevo material</string>
+    <string name="form_edit">Editar material</string>
+    <string name="form_name">Nombre del material</string>
+    <string name="form_name_hint">Ej. Acero inoxidable 430</string>
+    <string name="form_shape">Forma en que se vende</string>
+    <string name="form_stock_dims">Medidas del material en bruto</string>
+    <string name="form_price">Costo del bruto</string>
+    <string name="form_rate">Costo por cm³ resultante</string>
+    <string name="form_save">Añadir material</string>
+    <string name="form_save_changes">Guardar cambios</string>
+
+    <string name="set_subtitle">Todo se guarda en este teléfono</string>
+    <string name="set_language">Idioma</string>
+    <string name="set_language_es">Español</string>
+    <string name="set_language_en">English</string>
+    <string name="set_default_unit">Unidad por defecto</string>
+    <string name="set_default_unit_hint">Se aplica a cada campo nuevo</string>
+    <string name="set_decimals">Decimales</string>
+    <string name="set_currency">Símbolo de moneda</string>
+    <string name="set_reset_title">Restablecer materiales y proveedores</string>
+    <string name="set_reset_body">Borra tus proveedores y deja solo “Predeterminado” con sus materiales de fábrica.</string>
+    <string name="set_reset_cta">Restablecer</string>
+    <string name="set_reset_dialog_title">¿Restablecer todo?</string>
+    <string name="set_reset_dialog_body">Se eliminarán los proveedores y materiales que hayas creado. El proveedor “Predeterminado” volverá a sus materiales con precio sin configurar.</string>
+    <string name="set_reset_confirm">Sí, restablecer</string>
+    <string name="set_about_version">Calculadora de Metal · v1.0</string>
+    <string name="set_about_body">Sin conexión y sin nube: los datos viven en este teléfono.</string>
+
+    <string name="shape_round_bar">Barra redonda</string>
+    <string name="shape_square_bar">Barra cuadrada</string>
+    <string name="shape_rectangular_bar">Barra rectangular</string>
+    <string name="shape_hex_bar">Barra hexagonal</string>
+    <string name="shape_plate">Plancha</string>
+    <string name="shape_round_tube">Tubo redondo</string>
+    <string name="shape_rectangular_tube">Tubo rectangular</string>
+    <string name="shape_angle">Ángulo</string>
+    <string name="shape_channel">Canal (C)</string>
+    <string name="shape_i_beam">Viga I</string>
+    <string name="shape_t_bar">Barra T</string>
+
+    <string name="dim_diameter">Diámetro</string>
+    <string name="dim_side">Lado</string>
+    <string name="dim_width">Ancho</string>
+    <string name="dim_height">Alto</string>
+    <string name="dim_thickness">Grosor</string>
+    <string name="dim_length">Largo</string>
+    <string name="dim_wall_thickness">Grosor de pared</string>
+    <string name="dim_across_flats">Entre caras</string>
+    <string name="dim_web_thickness">Grosor del alma</string>
+    <string name="dim_flange_thickness">Grosor del ala</string>
 </resources>

@@ -1,4 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Metal Calculator</string>
+
+    <string name="tab_calc">Calculate</string>
+    <string name="tab_suppliers">Suppliers</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="common_cancel">Cancel</string>
+    <string name="common_save">Save</string>
+    <string name="common_close">Close</string>
+
+    <string name="calc_subtitle">Pick the stock shape</string>
+    <string name="calc_dimensions">Part dimensions</string>
+    <string name="calc_material">Material</string>
+    <string name="calc_choose_material">Choose material</string>
+    <string name="calc_material_hint">Stock grouped by supplier</string>
+    <string name="calc_manual_cost">Manual cost per part</string>
+    <string name="calc_manual_cost_hint">Optional, overrides the material</string>
+    <string name="calc_quantity">Number of parts</string>
+    <string name="calc_total_cost">Total cost</string>
+    <string name="calc_pieces_suffix">parts</string>
+    <string name="calc_per_piece">Per part</string>
+    <string name="calc_volume">Volume</string>
+    <string name="calc_rate">Cost / cm³</string>
+    <string name="calc_rate_manual">manual</string>
+    <string name="calc_error_incomplete">Fill in every dimension of the part.</string>
+    <string name="calc_error_quantity">The number of parts must be greater than zero.</string>
+    <string name="calc_error_no_price">This material has no cost configured. Set its price under Suppliers or use a manual cost.</string>
+    <string name="calc_shape_mismatch">⚠ This stock is sold in a different shape, so its cost per cm³ does not match this part.</string>
+    <string name="calc_material_sheet_title">Choose material</string>
+    <string name="calc_material_search">Search material or supplier</string>
+
+    <string name="material_no_price">no price</string>
+    <string name="material_tap_to_configure">tap to configure</string>
+    <string name="material_filter_note">Only stock the supplier sells as %1$s.</string>
+    <string name="material_filter_all_note">Showing every shape. Using another shape distorts the cost per cm³.</string>
+    <string name="material_empty_for_shape">No supplier has %1$s configured. Add it under Suppliers or use a manual cost.</string>
+    <string name="material_empty_search">No material matches your search.</string>
+    <string name="material_show_all">Show the other %1$d materials from other shapes</string>
+    <string name="material_show_compatible">Show only %1$s</string>
+
+    <string name="sup_subtitle">Suppliers and raw stock pricing</string>
+    <string name="sup_material_count_one">1 material</string>
+    <string name="sup_material_count_other">%1$d materials</string>
+    <string name="sup_builtin">built in</string>
+    <string name="sup_add_material">+ Add material</string>
+    <string name="sup_add_supplier">+ Add supplier</string>
+    <string name="sup_new_supplier">New supplier</string>
+    <string name="sup_supplier_name">Supplier name</string>
+
+    <string name="form_new">New material</string>
+    <string name="form_edit">Edit material</string>
+    <string name="form_name">Material name</string>
+    <string name="form_name_hint">e.g. Stainless steel 430</string>
+    <string name="form_shape">Shape it is sold in</string>
+    <string name="form_stock_dims">Raw stock dimensions</string>
+    <string name="form_price">Stock cost</string>
+    <string name="form_rate">Resulting cost per cm³</string>
+    <string name="form_save">Add material</string>
+    <string name="form_save_changes">Save changes</string>
+
+    <string name="set_subtitle">Everything stays on this phone</string>
+    <string name="set_language">Language</string>
+    <string name="set_language_es">Español</string>
+    <string name="set_language_en">English</string>
+    <string name="set_default_unit">Default unit</string>
+    <string name="set_default_unit_hint">Applied to every new field</string>
+    <string name="set_decimals">Decimals</string>
+    <string name="set_currency">Currency symbol</string>
+    <string name="set_reset_title">Reset materials and suppliers</string>
+    <string name="set_reset_body">Deletes your suppliers and leaves only “Predeterminado” with its built-in materials.</string>
+    <string name="set_reset_cta">Reset</string>
+    <string name="set_reset_dialog_title">Reset everything?</string>
+    <string name="set_reset_dialog_body">Suppliers and materials you created will be deleted. The “Predeterminado” supplier goes back to its materials with no price configured.</string>
+    <string name="set_reset_confirm">Yes, reset</string>
+    <string name="set_about_version">Metal Calculator · v1.0</string>
+    <string name="set_about_body">Offline and cloud-free: your data lives on this phone.</string>
+
+    <string name="shape_round_bar">Round bar</string>
+    <string name="shape_square_bar">Square bar</string>
+    <string name="shape_rectangular_bar">Rectangular bar</string>
+    <string name="shape_hex_bar">Hex bar</string>
+    <string name="shape_plate">Plate</string>
+    <string name="shape_round_tube">Round tube</string>
+    <string name="shape_rectangular_tube">Rectangular tube</string>
+    <string name="shape_angle">Angle</string>
+    <string name="shape_channel">Channel (C)</string>
+    <string name="shape_i_beam">I-beam</string>
+    <string name="shape_t_bar">T-bar</string>
+
+    <string name="dim_diameter">Diameter</string>
+    <string name="dim_side">Side</string>
+    <string name="dim_width">Width</string>
+    <string name="dim_height">Height</string>
+    <string name="dim_thickness">Thickness</string>
+    <string name="dim_length">Length</string>
+    <string name="dim_wall_thickness">Wall thickness</string>
+    <string name="dim_across_flats">Across flats</string>
+    <string name="dim_web_thickness">Web thickness</string>
+    <string name="dim_flange_thickness">Flange thickness</string>
 </resources>
