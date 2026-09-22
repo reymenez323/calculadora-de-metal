@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Metal Calculator</string>
+    <string name="splash_developed_by">Developed by Reymildo Jiménez</string>
+    <string name="splash_version">Version %1$s</string>
 
     <string name="tab_calc">Calculate</string>
     <string name="tab_suppliers">Suppliers</string>

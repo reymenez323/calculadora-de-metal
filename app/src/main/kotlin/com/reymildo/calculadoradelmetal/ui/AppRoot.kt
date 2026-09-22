@@ -63,13 +63,19 @@ fun AppRoot(container: AppContainer) {
         baseContext.createConfigurationContext(configuration)
     }
 
+    var showSplash by remember { mutableStateOf(true) }
+
     CalculadoraTheme {
         CompositionLocalProvider(
             LocalContext provides localizedContext,
             LocalConfiguration provides localizedContext.resources.configuration,
         ) {
-            Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-                AppScaffold(container = container, settings = settings, suppliers = suppliers)
+            if (showSplash) {
+                SplashScreen(onFinished = { showSplash = false })
+            } else {
+                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                    AppScaffold(container = container, settings = settings, suppliers = suppliers)
+                }
             }
         }
     }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brief OS-drawn splash (icon on a solid background) shown while the process
+         cold-starts, before the first Compose frame is ready. The real branded
+         loading screen (name, credit, version) is drawn in Compose right after —
+         the system splash API can't render that kind of custom multi-line content. -->
+    <style name="Theme.CalculadoraDeMetal.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+</resources>
