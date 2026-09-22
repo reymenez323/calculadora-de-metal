@@ -101,4 +101,5 @@
     <string name="dim_across_flats">Across flats</string>
     <string name="dim_web_thickness">Web thickness</string>
     <string name="dim_flange_thickness">Flange thickness</string>
+    <string name="dim_locked_by_material">Set by the material</string>
 </resources>

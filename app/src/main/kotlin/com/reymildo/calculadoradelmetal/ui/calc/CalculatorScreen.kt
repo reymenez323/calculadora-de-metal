@@ -81,6 +81,34 @@ private data class MaterialRow(val entity: MaterialEntity, val supplierName: Str
         runCatching { DimensionsCodec.decode(entity.stockDimensionsJson) }.getOrDefault(emptyMap())
 }
 
+/**
+ * Dimensiones que de verdad se "cortan a medida" por pieza. Todo lo demás (diámetro, grosor,
+ * lado, entre caras, grosor de pared/alma/ala) no lo elige quien corta: viene fijo por el bruto
+ * que compró, así que cuando el material coincide en forma se rellena y se bloquea en vez de
+ * pedírselo dos veces.
+ */
+private fun Shape.cuttableDimensions(): Set<DimensionType> = when (this) {
+    Shape.Plate -> setOf(DimensionType.WIDTH, DimensionType.LENGTH)
+    else -> setOf(DimensionType.LENGTH)
+}
+
+/** Copia las dimensiones "de perfil" del bruto elegido hacia el formulario, cuando la forma coincide. */
+private fun applyLockedDimensions(
+    shape: Shape,
+    material: MaterialRow?,
+    values: MutableMap<DimensionType, String>,
+    units: MutableMap<DimensionType, LengthUnit>,
+) {
+    if (material == null || material.entity.stockShapeId != shape.id) return
+    val cuttable = shape.cuttableDimensions()
+    shape.requiredDimensions.filterNot { it in cuttable }.forEach { type ->
+        material.dimensions[type]?.let { dim ->
+            values[type] = Fmt.trimNumber(dim.value)
+            units[type] = dim.unit
+        }
+    }
+}
+
 @Composable
 fun CalculatorScreen(
     suppliers: List<SupplierWithMaterials>,
@@ -115,8 +143,9 @@ fun CalculatorScreen(
                 manualCostText = ""
                 // el costo/cm³ de un bruto solo aplica a su misma forma
                 val compatible = rows.filter { it.entity.stockShapeId == shape.id }
-                selectedMaterialId = (compatible.firstOrNull { it.entity.costPerVolumeCm3 > 0.0 }
-                    ?: compatible.firstOrNull())?.entity?.id
+                val picked = compatible.firstOrNull { it.entity.costPerVolumeCm3 > 0.0 } ?: compatible.firstOrNull()
+                selectedMaterialId = picked?.entity?.id
+                applyLockedDimensions(shape, picked, values, units)
             },
         )
         return
@@ -203,14 +232,20 @@ fun CalculatorScreen(
             }
         }
 
+        val lockedByMaterial = material != null && material.entity.stockShapeId == selectedShape.id
+        val cuttable = selectedShape.cuttableDimensions()
+
         SectionCard(title = stringResource(R.string.calc_dimensions)) {
             selectedShape.requiredDimensions.forEach { type ->
+                val locked = lockedByMaterial && type !in cuttable
                 DimensionRow(
                     label = stringResource(dimensionNameRes(type)),
                     value = values[type] ?: "",
                     onValueChange = { values[type] = it },
                     unit = units[type] ?: settings.defaultLengthUnit,
                     onUnitChange = { units[type] = it },
+                    enabled = !locked,
+                    helper = if (locked) stringResource(R.string.dim_locked_by_material) else null,
                 )
             }
         }
@@ -345,6 +380,7 @@ fun CalculatorScreen(
             onPick = { id ->
                 selectedMaterialId = id
                 manualCostText = ""
+                applyLockedDimensions(selectedShape, rows.firstOrNull { it.entity.id == id }, values, units)
                 recentIds.remove(id)
                 recentIds.add(0, id)
                 while (recentIds.size > 3) recentIds.removeAt(recentIds.lastIndex)

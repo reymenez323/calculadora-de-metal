@@ -80,23 +80,34 @@ fun DimensionRow(
     unit: LengthUnit,
     onUnitChange: (LengthUnit) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    helper: String? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (helper != null) {
+                Text(
+                    text = helper,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         NumberFieldWithUnit(
             value = value,
             onValueChange = onValueChange,
             unit = unit,
             onUnitChange = onUnitChange,
+            enabled = enabled,
             modifier = Modifier.width(176.dp),
         )
     }
@@ -109,12 +120,14 @@ fun NumberFieldWithUnit(
     unit: LengthUnit,
     onUnitChange: (LengthUnit) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = { onValueChange(it.sanitizeDecimal()) },
         modifier = modifier,
+        enabled = enabled,
         placeholder = { Text("0", style = MaterialTheme.typography.bodyMedium) },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -127,10 +140,13 @@ fun NumberFieldWithUnit(
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
         ),
         trailingIcon = {
             Box {
-                TextButton(onClick = { expanded = true }) {
+                TextButton(onClick = { if (enabled) expanded = true }) {
                     Text(
                         text = unit.symbol,
                         style = MaterialTheme.typography.labelMedium,
