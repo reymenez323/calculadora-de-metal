@@ -13,6 +13,10 @@
     <string name="common_close">Cerrar</string>
 
     <string name="calc_subtitle">Elige la forma del material</string>
+    <string name="calc_mode_materia_prima">Materia prima</string>
+    <string name="calc_mode_torneado">Torneado</string>
+    <string name="calc_mode_fresado">Fresado</string>
+    <string name="calc_mode_coming_soon">Próximamente: aún no está disponible.</string>
     <string name="calc_dimensions">Dimensiones de la pieza</string>
     <string name="calc_material">Material</string>
     <string name="calc_choose_material">Elegir material</string>
@@ -76,7 +80,7 @@
     <string name="set_reset_dialog_title">¿Restablecer todo?</string>
     <string name="set_reset_dialog_body">Se eliminarán los proveedores y materiales que hayas creado. El proveedor “Predeterminado” volverá a sus materiales con precio sin configurar.</string>
     <string name="set_reset_confirm">Sí, restablecer</string>
-    <string name="set_about_version">Calculadora de Metal · v1.0</string>
+    <string name="set_about_version">Calculadora de Metal · v1.1</string>
     <string name="set_about_body">Sin conexión y sin nube: los datos viven en este teléfono.</string>
 
     <string name="shape_round_bar">Barra redonda</string>

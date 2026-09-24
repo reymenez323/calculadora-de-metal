@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -76,6 +77,12 @@ import com.reymildo.calculadoradelmetal.ui.common.sanitizeInt
 import com.reymildo.calculadoradelmetal.ui.common.shapeNameRes
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
+
+/**
+ * Modo de trabajo de la pestaña Calcular. Por ahora solo materia prima está implementado;
+ * torneado y fresado aparecen en el selector para cuando se construyan.
+ */
+enum class CalcMode { MATERIA_PRIMA, TORNEADO, FRESADO }
 
 private data class MaterialRow(val entity: MaterialEntity, val supplierName: String) {
     val shape: Shape? = runCatching { Shape.fromId(entity.stockShapeId) }.getOrNull()
@@ -116,7 +123,15 @@ fun CalculatorScreen(
     suppliers: List<SupplierWithMaterials>,
     settings: AppSettings,
     modifier: Modifier = Modifier,
+    mode: CalcMode = CalcMode.MATERIA_PRIMA,
+    onShapeChosenChange: (Boolean) -> Unit = {},
 ) {
+    if (mode != CalcMode.MATERIA_PRIMA) {
+        LaunchedEffect(Unit) { onShapeChosenChange(false) }
+        ComingSoonScreen(modifier = modifier)
+        return
+    }
+
     var selectedShapeId by remember { mutableStateOf<String?>(null) }
     val values = remember { mutableStateMapOf<DimensionType, String>() }
     val units = remember { mutableStateMapOf<DimensionType, LengthUnit>() }
@@ -130,6 +145,7 @@ fun CalculatorScreen(
         suppliers.flatMap { group -> group.materials.map { MaterialRow(it, group.supplier.name) } }
     }
     val selectedShape = selectedShapeId?.let { id -> runCatching { Shape.fromId(id) }.getOrNull() }
+    LaunchedEffect(selectedShape) { onShapeChosenChange(selectedShape != null) }
 
     if (selectedShape == null) {
         ShapePickerScreen(
@@ -400,6 +416,22 @@ fun CalculatorScreen(
                 while (recentIds.size > 3) recentIds.removeAt(recentIds.lastIndex)
                 pickerOpen = false
             },
+        )
+    }
+}
+
+@Composable
+private fun ComingSoonScreen(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.calc_mode_coming_soon),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

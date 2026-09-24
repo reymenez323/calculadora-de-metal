@@ -4,11 +4,15 @@ package com.reymildo.calculadoradelmetal.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
 import com.reymildo.calculadoradelmetal.di.AppContainer
+import com.reymildo.calculadoradelmetal.ui.calc.CalcMode
 import com.reymildo.calculadoradelmetal.ui.calc.CalculatorScreen
 import com.reymildo.calculadoradelmetal.ui.settings.SettingsScreen
 import com.reymildo.calculadoradelmetal.ui.suppliers.SuppliersScreen
@@ -88,6 +93,8 @@ private fun AppScaffold(
     suppliers: List<com.reymildo.calculadoradelmetal.data.local.relation.SupplierWithMaterials>,
 ) {
     var tab by remember { mutableStateOf(Tab.CALC) }
+    var calcMode by remember { mutableStateOf(CalcMode.MATERIA_PRIMA) }
+    var calcShapeChosen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -107,15 +114,21 @@ private fun AppScaffold(
                             },
                             style = MaterialTheme.typography.headlineMedium,
                         )
-                        Text(
-                            text = when (tab) {
-                                Tab.CALC -> stringResource(R.string.calc_subtitle)
-                                Tab.SUPPLIERS -> stringResource(R.string.sup_subtitle)
-                                Tab.SETTINGS -> stringResource(R.string.set_subtitle)
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        when (tab) {
+                            Tab.CALC -> if (!calcShapeChosen) {
+                                CalcModeDropdown(mode = calcMode, onModeChange = { calcMode = it })
+                            }
+                            Tab.SUPPLIERS -> Text(
+                                text = stringResource(R.string.sup_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Tab.SETTINGS -> Text(
+                                text = stringResource(R.string.set_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
             )
@@ -156,6 +169,8 @@ private fun AppScaffold(
                 suppliers = suppliers,
                 settings = settings,
                 modifier = Modifier.padding(padding),
+                mode = calcMode,
+                onShapeChosenChange = { calcShapeChosen = it },
             )
 
             Tab.SUPPLIERS -> SuppliersScreen(
@@ -203,6 +218,50 @@ private fun AppScaffold(
         }
     }
 }
+
+@Composable
+private fun calcModeLabel(mode: CalcMode): String = when (mode) {
+    CalcMode.MATERIA_PRIMA -> stringResource(R.string.calc_mode_materia_prima)
+    CalcMode.TORNEADO -> stringResource(R.string.calc_mode_torneado)
+    CalcMode.FRESADO -> stringResource(R.string.calc_mode_fresado)
+}
+
+/**
+ * Reemplaza el subtítulo estático de la pestaña Calcular: deja elegir el modo de trabajo
+ * (materia prima, torneado, fresado). Solo materia prima está implementada por ahora; las otras
+ * dos ya aparecen en la lista para cuando se construyan.
+ */
+@Composable
+private fun CalcModeDropdown(mode: CalcMode, onModeChange: (CalcMode) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            text = calcModeLabel(mode) + " ⌄",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickableNoRipple { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            CalcMode.entries.forEach { candidate ->
+                DropdownMenuItem(
+                    text = { Text(calcModeLabel(candidate)) },
+                    onClick = {
+                        onModeChange(candidate)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = this.then(
+    Modifier.clickable(
+        interactionSource = androidx.compose.foundation.interaction.MutableInteractionSource(),
+        indication = null,
+        onClick = onClick,
+    ),
+)
 
 /** Iconos de la barra inferior, dibujados a mano para no depender de material-icons-extended. */
 @Composable

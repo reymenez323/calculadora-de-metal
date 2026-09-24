@@ -11,9 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
@@ -23,7 +25,10 @@ import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.domain.model.DimensionType
 import com.reymildo.calculadoradelmetal.domain.model.Shape
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @StringRes
 fun shapeNameRes(shape: Shape): Int = when (shape) {
@@ -84,8 +89,15 @@ private fun polygonOf(vararg pts: Float): List<Offset> {
     return list
 }
 
-/** Contorno (frente) de cada forma en unidades 0..32, como polígono cerrado; null para los redondos. */
-private fun shapeOutline(shape: Shape): List<Offset>? = when (shape) {
+/** Aproxima un círculo con un polígono cerrado, recorrido en sentido horario (igual que los demás contornos). */
+private fun circleOutline(cx: Float, cy: Float, r: Float, segments: Int = 48): List<Offset> =
+    (0 until segments).map { i ->
+        val theta = (2.0 * Math.PI * i / segments)
+        Offset(cx + r * cos(theta).toFloat(), cy + r * sin(theta).toFloat())
+    }
+
+/** Contorno (frente) de cada forma en unidades 0..32, como polígono cerrado (los redondos, aproximados). */
+private fun shapeOutline(shape: Shape): List<Offset> = when (shape) {
     Shape.SquareBar -> polygonOf(5f, 5f, 27f, 5f, 27f, 27f, 5f, 27f)
     Shape.RectangularBar -> polygonOf(4f, 10f, 28f, 10f, 28f, 22f, 4f, 22f)
     Shape.HexBar -> polygonOf(16f, 3.5f, 26.8f, 9.75f, 26.8f, 22.25f, 16f, 28.5f, 5.2f, 22.25f, 5.2f, 9.75f)
@@ -97,7 +109,16 @@ private fun shapeOutline(shape: Shape): List<Offset>? = when (shape) {
         26f, 28f, 6f, 28f, 6f, 23f, 13.5f, 23f, 13.5f, 9f, 6f, 9f,
     )
     Shape.TBar -> polygonOf(4f, 4f, 28f, 4f, 28f, 9f, 18.5f, 9f, 18.5f, 28f, 13.5f, 28f, 13.5f, 9f, 4f, 9f)
-    Shape.RoundBar, Shape.RoundTube, Shape.RectangularTube -> null
+    Shape.RoundBar -> circleOutline(16f, 16f, 12f)
+    Shape.RoundTube -> circleOutline(16f, 16f, 12f)
+    Shape.RectangularTube -> polygonOf(4f, 8f, 28f, 8f, 28f, 24f, 4f, 24f)
+}
+
+/** Contorno del hueco (para tubos), en unidades 0..32; null si la forma es maciza. */
+private fun holeOutline(shape: Shape): List<Offset>? = when (shape) {
+    Shape.RoundTube -> circleOutline(16f, 16f, 7f)
+    Shape.RectangularTube -> polygonOf(8.5f, 12.5f, 23.5f, 12.5f, 23.5f, 19.5f, 8.5f, 19.5f)
+    else -> null
 }
 
 private fun Path.addPolygon(points: List<Offset>, toPx: (Float, Float) -> Offset) {
@@ -111,37 +132,111 @@ private fun Path.addPolygon(points: List<Offset>, toPx: (Float, Float) -> Offset
 }
 
 /** Cara frontal rellena de cada forma (con hueco en los tubos), en unidades 0..32. */
-private fun frontPath(shape: Shape, toPx: (Float, Float) -> Offset, unitToPx: (Float) -> Float): Path {
+private fun frontPath(shape: Shape, toPx: (Float, Float) -> Offset): Path {
     val path = Path()
-    when (shape) {
-        Shape.RoundBar -> {
-            val c = toPx(16f, 16f)
-            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(12f)))
-        }
-        Shape.RoundTube -> {
-            val c = toPx(16f, 16f)
-            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(12f)))
-            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(7f)))
-            path.fillType = PathFillType.EvenOdd
-        }
-        Shape.RectangularTube -> {
-            val outerTl = toPx(4f, 8f)
-            val outerBr = toPx(28f, 24f)
-            val innerTl = toPx(8.5f, 12.5f)
-            val innerBr = toPx(23.5f, 19.5f)
-            path.addRect(androidx.compose.ui.geometry.Rect(outerTl, outerBr))
-            path.addRect(androidx.compose.ui.geometry.Rect(innerTl, innerBr))
-            path.fillType = PathFillType.EvenOdd
-        }
-        else -> shapeOutline(shape)?.let { path.addPolygon(it, toPx) }
+    path.addPolygon(shapeOutline(shape), toPx)
+    holeOutline(shape)?.let { hole ->
+        val holePath = Path().apply { addPolygon(hole, toPx) }
+        path.fillType = PathFillType.EvenOdd
+        path.addPath(holePath)
     }
     return path
 }
 
+/** Vector normal saliente (perpendicular, hacia afuera) del segmento a→b de un polígono horario. */
+private fun outwardNormal(a: Offset, b: Offset): Offset {
+    val dx = b.x - a.x
+    val dy = b.y - a.y
+    val len = sqrt(dx * dx + dy * dy).takeIf { it > 1e-4f } ?: 1f
+    return Offset(dy / len, -dx / len)
+}
+
 /**
- * Ícono isométrico del perfil de cada forma: tres caras con tono propio (techo claro, frente en
- * el color de acento, costado oscuro) para que se lea como un tramo extruido de verdad, no como
- * un contorno con transparencia. Sin assets, todo vectorial.
+ * Dibuja el cuerpo extruido de una forma: por cada arista visible del contorno (normal saliente
+ * hacia arriba o hacia la derecha) traza la franja que la lleva hasta la copia desplazada por
+ * `depthPx`, con un degradado que va oscureciendo hacia el fondo — así una silueta cóncava (I,
+ * canal, ángulo) o redonda (barra, tubo) se sombrea de verdad en vez de usar la caja del contorno.
+ */
+private fun DrawScope.drawExtrudedBody(
+    outline: List<Offset>,
+    toPx: (Float, Float) -> Offset,
+    depthPx: Offset,
+    gradTop: Brush,
+    gradSide: Brush,
+    outlineColor: Color,
+    strokeWidthPx: Float,
+) {
+    val n = outline.size
+    val topQuads = ArrayList<Path>()
+    val sideQuads = ArrayList<Path>()
+    for (i in 0 until n) {
+        val a = outline[i]
+        val b = outline[(i + 1) % n]
+        val normal = outwardNormal(a, b)
+        val topWeight = -normal.y
+        val sideWeight = normal.x
+        if (topWeight <= 0.02f && sideWeight <= 0.02f) continue
+        val pa = toPx(a.x, a.y)
+        val pb = toPx(b.x, b.y)
+        val quad = Path().apply {
+            moveTo(pa.x, pa.y)
+            lineTo(pb.x, pb.y)
+            lineTo(pb.x + depthPx.x, pb.y + depthPx.y)
+            lineTo(pa.x + depthPx.x, pa.y + depthPx.y)
+            close()
+        }
+        if (topWeight >= sideWeight) topQuads.add(quad) else sideQuads.add(quad)
+    }
+    sideQuads.forEach { quad ->
+        drawPath(quad, gradSide)
+        drawPath(quad, outlineColor, style = Stroke(width = strokeWidthPx))
+    }
+    topQuads.forEach { quad ->
+        drawPath(quad, gradTop)
+        drawPath(quad, outlineColor, style = Stroke(width = strokeWidthPx))
+    }
+}
+
+/**
+ * Dibuja el ícono isométrico completo de una forma: cuerpo extruido con sombreado real por arista
+ * (degradado hacia el fondo), hueco oscuro en los tubos, y la cara frontal encima en el color de
+ * acento — como un tramo de material cortado, no como un contorno plano.
+ */
+private fun DrawScope.drawIsoShape(
+    shape: Shape,
+    color: Color,
+    toPx: (Float, Float) -> Offset,
+    depthPx: Offset,
+    strokeWidthPx: Float,
+) {
+    val topColor = lerp(color, Color.White, 0.5f)
+    val sideColor = lerp(color, Color.Black, 0.42f)
+    val outlineColor = lerp(color, Color.Black, 0.55f)
+    val farColor = lerp(color, Color.Black, 0.86f)
+
+    val bbox = shapeBoundingBox(shape)
+    val nearAnchor = toPx((bbox.left + bbox.right) / 2f, (bbox.top + bbox.bottom) / 2f)
+    val farAnchor = nearAnchor + depthPx
+    val gradTop = Brush.linearGradient(listOf(topColor, farColor), start = nearAnchor, end = farAnchor)
+    val gradSide = Brush.linearGradient(listOf(sideColor, farColor), start = nearAnchor, end = farAnchor)
+
+    drawExtrudedBody(shapeOutline(shape), toPx, depthPx, gradTop, gradSide, outlineColor, strokeWidthPx)
+
+    holeOutline(shape)?.let { hole ->
+        val holePath = Path().apply { addPolygon(hole, toPx) }
+        val holeBrush = Brush.linearGradient(listOf(outlineColor, Color.Black), start = nearAnchor, end = farAnchor)
+        drawPath(holePath, holeBrush)
+    }
+
+    val front = frontPath(shape, toPx)
+    drawPath(front, color)
+    drawPath(front, outlineColor, style = Stroke(width = strokeWidthPx))
+}
+
+/**
+ * Ícono isométrico del perfil de cada forma: cuerpo extruido con sombreado por arista y cara
+ * frontal en el color de acento, para que se lea como un tramo cortado de verdad. Sin assets,
+ * todo vectorial.
  */
 @Composable
 fun ShapeGlyph(
@@ -150,10 +245,6 @@ fun ShapeGlyph(
     modifier: Modifier = Modifier,
     strokeWidth: Float = 1.4f,
 ) {
-    val topColor = lerp(color, Color.White, 0.5f)
-    val sideColor = lerp(color, Color.Black, 0.42f)
-    val outlineColor = lerp(color, Color.Black, 0.55f)
-
     Canvas(modifier = modifier) {
         val virtualW = 38f
         val virtualH = 36f
@@ -161,28 +252,9 @@ fun ShapeGlyph(
         val ox = (size.width - virtualW * u) / 2f
         val oy = (size.height - virtualH * u) / 2f + 3f * u
         fun toPx(x: Float, y: Float) = Offset(ox + x * u, oy + y * u)
-        fun unitToPx(v: Float) = v * u
         val depthPx = Offset(DEPTH_UNITS.x * u, DEPTH_UNITS.y * u)
-        val bbox = shapeBoundingBox(shape)
 
-        val tl = toPx(bbox.left, bbox.top)
-        val tr = toPx(bbox.right, bbox.top)
-        val br = toPx(bbox.right, bbox.bottom)
-        val tlBack = tl + depthPx
-        val trBack = tr + depthPx
-        val brBack = br + depthPx
-
-        val top = Path().apply { moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(trBack.x, trBack.y); lineTo(tlBack.x, tlBack.y); close() }
-        drawPath(top, topColor)
-        drawPath(top, outlineColor, style = Stroke(width = 1f))
-
-        val side = Path().apply { moveTo(tr.x, tr.y); lineTo(br.x, br.y); lineTo(brBack.x, brBack.y); lineTo(trBack.x, trBack.y); close() }
-        drawPath(side, sideColor)
-        drawPath(side, outlineColor, style = Stroke(width = 1f))
-
-        val front = frontPath(shape, ::toPx, ::unitToPx)
-        drawPath(front, color)
-        drawPath(front, outlineColor, style = Stroke(width = strokeWidth * u))
+        drawIsoShape(shape, color, ::toPx, depthPx, strokeWidth * u)
     }
 }
 
@@ -290,16 +362,13 @@ private fun calloutsFor(shape: Shape): List<Callout> {
 }
 
 /**
- * Diagrama de referencia: el mismo perfil isométrico con sombreado de tres caras, más grande,
+ * Diagrama de referencia: el mismo perfil isométrico con sombreado real por arista, más grande,
  * con las medidas escritas directamente sobre el dibujo — una línea de cota (o un tique corto
  * para los grosores) que termina en el nombre del campo, igual que un plano técnico.
  */
 @Composable
 fun ShapeIsoDiagram(shape: Shape, modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
-    val topColor = lerp(accent, Color.White, 0.5f)
-    val sideColor = lerp(accent, Color.Black, 0.42f)
-    val outlineColor = lerp(accent, Color.Black, 0.55f)
     val labelColor = MaterialTheme.colorScheme.onSurface
     val lineColor = accent.copy(alpha = 0.85f)
 
@@ -313,28 +382,9 @@ fun ShapeIsoDiagram(shape: Shape, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(width = boxWidthDp.dp, height = boxHeightDp.dp), contentAlignment = Alignment.TopStart) {
         Canvas(modifier = Modifier.size(width = boxWidthDp.dp, height = boxHeightDp.dp)) {
             fun toPx(x: Float, y: Float) = Offset((oxDp + x * uDp).dp.toPx(), (oyDp + y * uDp).dp.toPx())
-            fun unitToPx(v: Float) = (v * uDp).dp.toPx()
             val depthPx = Offset(DEPTH_UNITS.x, DEPTH_UNITS.y).let { Offset((it.x * uDp).dp.toPx(), (it.y * uDp).dp.toPx()) }
-            val bbox = shapeBoundingBox(shape)
 
-            val tl = toPx(bbox.left, bbox.top)
-            val tr = toPx(bbox.right, bbox.top)
-            val br = toPx(bbox.right, bbox.bottom)
-            val tlBack = tl + depthPx
-            val trBack = tr + depthPx
-            val brBack = br + depthPx
-
-            val top = Path().apply { moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(trBack.x, trBack.y); lineTo(tlBack.x, tlBack.y); close() }
-            drawPath(top, topColor)
-            drawPath(top, outlineColor, style = Stroke(width = 1.3.dp.toPx()))
-
-            val side = Path().apply { moveTo(tr.x, tr.y); lineTo(br.x, br.y); lineTo(brBack.x, brBack.y); lineTo(trBack.x, trBack.y); close() }
-            drawPath(side, sideColor)
-            drawPath(side, outlineColor, style = Stroke(width = 1.3.dp.toPx()))
-
-            val front = frontPath(shape, ::toPx, ::unitToPx)
-            drawPath(front, accent)
-            drawPath(front, outlineColor, style = Stroke(width = 1.6.dp.toPx()))
+            drawIsoShape(shape, accent, ::toPx, depthPx, 1.6.dp.toPx())
 
             // Líneas de cota: un trazo entre los dos puntos, con un tique perpendicular en cada
             // extremo (o uno solo para los tiques de detalle, que no cruzan toda la pieza).
@@ -344,7 +394,7 @@ fun ShapeIsoDiagram(shape: Shape, modifier: Modifier = Modifier) {
                 val strokeW = 1.2.dp.toPx()
                 drawLine(lineColor, p1, p2, strokeWidth = strokeW)
                 val dir = Offset(p2.x - p1.x, p2.y - p1.y)
-                val len = kotlin.math.sqrt(dir.x * dir.x + dir.y * dir.y).takeIf { it > 0.01f } ?: 1f
+                val len = sqrt(dir.x * dir.x + dir.y * dir.y).takeIf { it > 0.01f } ?: 1f
                 val perp = Offset(-dir.y / len, dir.x / len) * 3.dp.toPx()
                 drawLine(lineColor, p1 - perp, p1 + perp, strokeWidth = strokeW)
                 if (callout.isSpan) {

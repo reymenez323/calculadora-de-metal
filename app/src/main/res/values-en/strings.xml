@@ -13,6 +13,10 @@
     <string name="common_close">Close</string>
 
     <string name="calc_subtitle">Pick the stock shape</string>
+    <string name="calc_mode_materia_prima">Raw material</string>
+    <string name="calc_mode_torneado">Turning</string>
+    <string name="calc_mode_fresado">Milling</string>
+    <string name="calc_mode_coming_soon">Coming soon: not available yet.</string>
     <string name="calc_dimensions">Part dimensions</string>
     <string name="calc_material">Material</string>
     <string name="calc_choose_material">Choose material</string>
@@ -76,7 +80,7 @@
     <string name="set_reset_dialog_title">Reset everything?</string>
     <string name="set_reset_dialog_body">Suppliers and materials you created will be deleted. The “Predeterminado” supplier goes back to its materials with no price configured.</string>
     <string name="set_reset_confirm">Yes, reset</string>
-    <string name="set_about_version">Metal Calculator · v1.0</string>
+    <string name="set_about_version">Metal Calculator · v1.1</string>
     <string name="set_about_body">Offline and cloud-free: your data lives on this phone.</string>
 
     <string name="shape_round_bar">Round bar</string>
