@@ -105,25 +105,31 @@ private fun AppScaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
                 title = {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = when (tab) {
-                                Tab.CALC -> stringResource(R.string.tab_calc)
-                                Tab.SUPPLIERS -> stringResource(R.string.tab_suppliers)
-                                Tab.SETTINGS -> stringResource(R.string.tab_settings)
-                            },
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                        when (tab) {
-                            Tab.CALC -> if (!calcShapeChosen) {
-                                CalcModeDropdown(mode = calcMode, onModeChange = { calcMode = it })
-                            }
-                            Tab.SUPPLIERS -> Text(
+                    when (tab) {
+                        Tab.CALC -> if (!calcShapeChosen) {
+                            CalcModeDropdown(
+                                mode = calcMode,
+                                onModeChange = { calcMode = it },
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                        }
+                        Tab.SUPPLIERS -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(R.string.tab_suppliers),
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                            Text(
                                 text = stringResource(R.string.sup_subtitle),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Tab.SETTINGS -> Text(
+                        }
+                        Tab.SETTINGS -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(R.string.tab_settings),
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                            Text(
                                 text = stringResource(R.string.set_subtitle),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -227,18 +233,22 @@ private fun calcModeLabel(mode: CalcMode): String = when (mode) {
 }
 
 /**
- * Reemplaza el subtítulo estático de la pestaña Calcular: deja elegir el modo de trabajo
- * (materia prima, torneado, fresado). Solo materia prima está implementada por ahora; las otras
- * dos ya aparecen en la lista para cuando se construyan.
+ * Reemplaza el título "Calcular" de esa pestaña: deja elegir el modo de trabajo (materia prima,
+ * torneado, fresado) directamente ahí arriba. Solo materia prima está implementada por ahora; las
+ * otras dos ya aparecen en la lista para cuando se construyan.
  */
 @Composable
-private fun CalcModeDropdown(mode: CalcMode, onModeChange: (CalcMode) -> Unit) {
+private fun CalcModeDropdown(
+    mode: CalcMode,
+    onModeChange: (CalcMode) -> Unit,
+    style: androidx.compose.ui.text.TextStyle,
+) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Text(
             text = calcModeLabel(mode) + " ⌄",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = style,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.clickableNoRipple { expanded = true },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
