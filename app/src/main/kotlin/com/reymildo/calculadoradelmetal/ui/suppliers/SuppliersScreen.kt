@@ -58,8 +58,10 @@ import com.reymildo.calculadoradelmetal.domain.model.Shape
 import com.reymildo.calculadoradelmetal.ui.common.DimensionRow
 import com.reymildo.calculadoradelmetal.ui.common.Fmt
 import com.reymildo.calculadoradelmetal.ui.common.MoneyField
+import com.reymildo.calculadoradelmetal.ui.common.RoundTubeInnerDiameterRow
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.ShapeGlyph
+import com.reymildo.calculadoradelmetal.ui.common.ShapeIsoDiagram
 import com.reymildo.calculadoradelmetal.ui.common.shapeNameRes
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
@@ -418,6 +420,10 @@ private fun MaterialFormSheet(
                 }
             }
 
+            SectionCard(title = stringResource(R.string.dim_reference_title)) {
+                ShapeIsoDiagram(shape = shape, modifier = Modifier.fillMaxWidth())
+            }
+
             SectionCard(title = stringResource(R.string.form_stock_dims)) {
                 shape.requiredDimensions.forEach { type ->
                     DimensionRow(
@@ -427,6 +433,9 @@ private fun MaterialFormSheet(
                         unit = units[type] ?: settings.defaultLengthUnit,
                         onUnitChange = { units[type] = it },
                     )
+                }
+                if (shape == Shape.RoundTube) {
+                    RoundTubeInnerDiameterRow(values = values, units = units)
                 }
             }
 

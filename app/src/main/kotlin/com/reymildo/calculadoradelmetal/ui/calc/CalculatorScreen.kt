@@ -66,8 +66,10 @@ import com.reymildo.calculadoradelmetal.ui.common.DimensionRow
 import com.reymildo.calculadoradelmetal.ui.common.Fmt
 import com.reymildo.calculadoradelmetal.ui.common.MoneyField
 import com.reymildo.calculadoradelmetal.ui.common.ResultStat
+import com.reymildo.calculadoradelmetal.ui.common.RoundTubeInnerDiameterRow
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.ShapeGlyph
+import com.reymildo.calculadoradelmetal.ui.common.ShapeIsoDiagram
 import com.reymildo.calculadoradelmetal.ui.common.Stepper
 import com.reymildo.calculadoradelmetal.ui.common.dimensionNameRes
 import com.reymildo.calculadoradelmetal.ui.common.sanitizeInt
@@ -232,6 +234,10 @@ fun CalculatorScreen(
             }
         }
 
+        SectionCard(title = stringResource(R.string.dim_reference_title)) {
+            ShapeIsoDiagram(shape = selectedShape, modifier = Modifier.fillMaxWidth())
+        }
+
         val lockedByMaterial = material != null && material.entity.stockShapeId == selectedShape.id
         val cuttable = selectedShape.cuttableDimensions()
 
@@ -246,6 +252,14 @@ fun CalculatorScreen(
                     onUnitChange = { units[type] = it },
                     enabled = !locked,
                     helper = if (locked) stringResource(R.string.dim_locked_by_material) else null,
+                )
+            }
+            if (selectedShape == Shape.RoundTube) {
+                RoundTubeInnerDiameterRow(
+                    values = values,
+                    units = units,
+                    enabled = !lockedByMaterial,
+                    helper = if (lockedByMaterial) stringResource(R.string.dim_locked_by_material) else null,
                 )
             }
         }

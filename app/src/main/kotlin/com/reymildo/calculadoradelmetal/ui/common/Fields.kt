@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,8 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.domain.calculation.UnitConverter
+import com.reymildo.calculadoradelmetal.domain.model.DimensionType
 import com.reymildo.calculadoradelmetal.domain.model.LengthUnit
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
+import kotlinx.coroutines.delay
 
 /** Tarjeta blanca con encabezado en mayúsculas, el contenedor base de todas las pantallas. */
 @Composable
@@ -255,6 +261,78 @@ fun Stepper(
             Text("+", style = MaterialTheme.typography.titleMedium)
         }
     }
+}
+
+/**
+ * Fila extra para tubo redondo: diámetro exterior, grosor de pared y diámetro interior están
+ * relacionados (interior = exterior − 2×grosor); esta fila deja escribir el diámetro interior
+ * directamente y recalcula el GROSOR guardado en [values] para mantener la relación, sin tocar
+ * el diámetro exterior. Cuando el exterior o el grosor cambian por otra vía (edición directa,
+ * o un material que se acaba de bloquear), el valor mostrado aquí se refresca solo.
+ */
+@Composable
+fun RoundTubeInnerDiameterRow(
+    values: MutableMap<DimensionType, String>,
+    units: MutableMap<DimensionType, LengthUnit>,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    helper: String? = null,
+) {
+    val outerText = values[DimensionType.DIAMETER] ?: ""
+    val outerUnit = units[DimensionType.DIAMETER] ?: LengthUnit.IN
+    val wallText = values[DimensionType.WALL_THICKNESS] ?: ""
+    val wallUnit = units[DimensionType.WALL_THICKNESS] ?: LengthUnit.IN
+
+    var idUnit by remember { mutableStateOf(outerUnit) }
+    var idText by remember { mutableStateOf("") }
+    var isEditingId by remember { mutableStateOf(false) }
+
+    val derivedIdText = run {
+        val outerCm = outerText.toDecimalOrNull()?.let { UnitConverter.toCm(it, outerUnit) }
+        val wallCm = wallText.toDecimalOrNull()?.let { UnitConverter.toCm(it, wallUnit) }
+        if (outerCm != null && wallCm != null) {
+            Fmt.trimNumber(UnitConverter.fromCm(outerCm - 2 * wallCm, idUnit))
+        } else {
+            ""
+        }
+    }
+    if (!isEditingId && idText != derivedIdText) {
+        idText = derivedIdText
+    }
+
+    LaunchedEffect(idText) {
+        if (isEditingId) {
+            delay(500)
+            isEditingId = false
+        }
+    }
+
+    fun recomputeWallFrom(innerText: String, innerUnit: LengthUnit) {
+        val outerCm = outerText.toDecimalOrNull()?.let { UnitConverter.toCm(it, outerUnit) }
+        val innerCm = innerText.toDecimalOrNull()?.let { UnitConverter.toCm(it, innerUnit) }
+        if (outerCm != null && innerCm != null) {
+            values[DimensionType.WALL_THICKNESS] = Fmt.trimNumber(UnitConverter.fromCm((outerCm - innerCm) / 2, wallUnit))
+        }
+    }
+
+    DimensionRow(
+        label = stringResource(R.string.dim_inner_diameter),
+        value = idText,
+        onValueChange = { newText ->
+            isEditingId = true
+            idText = newText
+            recomputeWallFrom(newText, idUnit)
+        },
+        unit = idUnit,
+        onUnitChange = { newUnit ->
+            isEditingId = true
+            idUnit = newUnit
+            recomputeWallFrom(idText, newUnit)
+        },
+        enabled = enabled,
+        helper = helper,
+        modifier = modifier,
+    )
 }
 
 /** Etiqueta de dato dentro de la tarjeta oscura de resultado. */

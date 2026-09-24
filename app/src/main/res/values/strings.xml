@@ -102,4 +102,6 @@
     <string name="dim_web_thickness">Grosor del alma</string>
     <string name="dim_flange_thickness">Grosor del ala</string>
     <string name="dim_locked_by_material">Fijado por el material</string>
+    <string name="dim_inner_diameter">Diámetro interior</string>
+    <string name="dim_reference_title">Cómo se mide</string>
 </resources>

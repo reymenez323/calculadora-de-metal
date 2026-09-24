@@ -14,8 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,7 +45,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     .padding(bottom = 20.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                DiameterGlyph(color = MaterialTheme.colorScheme.primary, sizeDp = 88.dp)
+                IsoIBeamGlyph(color = MaterialTheme.colorScheme.primary, sizeDp = 88.dp)
             }
 
             Text(
@@ -76,19 +74,27 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 }
 
-/** The app's ⌀ mark, drawn to match the launcher icon and the rest of the hand-drawn glyphs. */
+/** The app's isometric I-beam mark, matching the launcher icon and the in-app shape glyphs. */
 @Composable
-private fun DiameterGlyph(color: androidx.compose.ui.graphics.Color, sizeDp: androidx.compose.ui.unit.Dp) {
+private fun IsoIBeamGlyph(color: androidx.compose.ui.graphics.Color, sizeDp: androidx.compose.ui.unit.Dp) {
     Canvas(modifier = Modifier.size(sizeDp)) {
         val u = size.minDimension / 108f
-        val stroke = Stroke(width = 6.5f * u)
-        drawCircle(color = color, radius = 24f * u, center = Offset(54f * u, 54f * u), style = stroke)
-        drawLine(
-            color = color,
-            start = Offset(28f * u, 80f * u),
-            end = Offset(80f * u, 28f * u),
-            strokeWidth = 6.5f * u,
-            cap = androidx.compose.ui.graphics.StrokeCap.Round,
-        )
+
+        val top = androidx.compose.ui.graphics.Path().apply {
+            moveTo(32f * u, 32f * u); lineTo(60f * u, 32f * u); lineTo(74f * u, 24f * u); lineTo(46f * u, 24f * u); close()
+        }
+        drawPath(top, color.copy(alpha = 0.35f))
+
+        val side = androidx.compose.ui.graphics.Path().apply {
+            moveTo(60f * u, 32f * u); lineTo(60f * u, 78f * u); lineTo(74f * u, 70f * u); lineTo(74f * u, 24f * u); close()
+        }
+        drawPath(side, color.copy(alpha = 0.2f))
+
+        val front = androidx.compose.ui.graphics.Path().apply {
+            moveTo(32f * u, 32f * u); lineTo(60f * u, 32f * u); lineTo(60f * u, 39f * u); lineTo(50f * u, 39f * u)
+            lineTo(50f * u, 71f * u); lineTo(60f * u, 71f * u); lineTo(60f * u, 78f * u); lineTo(32f * u, 78f * u)
+            lineTo(32f * u, 71f * u); lineTo(42f * u, 71f * u); lineTo(42f * u, 39f * u); lineTo(32f * u, 39f * u); close()
+        }
+        drawPath(front, color)
     }
 }

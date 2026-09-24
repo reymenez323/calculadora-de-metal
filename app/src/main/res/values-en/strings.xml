@@ -102,4 +102,6 @@
     <string name="dim_web_thickness">Web thickness</string>
     <string name="dim_flange_thickness">Flange thickness</string>
     <string name="dim_locked_by_material">Set by the material</string>
+    <string name="dim_inner_diameter">Inner diameter</string>
+    <string name="dim_reference_title">How it\'s measured</string>
 </resources>
