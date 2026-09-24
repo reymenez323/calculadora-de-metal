@@ -2,9 +2,8 @@ package com.reymildo.calculadoradelmetal.ui.common
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -12,12 +11,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.domain.model.DimensionType
@@ -55,6 +56,7 @@ fun dimensionNameRes(type: DimensionType): Int = when (type) {
 
 private const val ISO_COS30 = 0.8660254f
 private const val ISO_SIN30 = 0.5f
+private val DEPTH_UNITS = Offset(6f * ISO_COS30, -6f * ISO_SIN30)
 
 private data class UnitBox(val left: Float, val top: Float, val right: Float, val bottom: Float)
 
@@ -72,122 +74,86 @@ private fun shapeBoundingBox(shape: Shape): UnitBox = when (shape) {
     Shape.TBar -> UnitBox(4f, 4f, 28f, 28f)
 }
 
-/** Perfil (cara frontal) de cada forma, en unidades 0..32. El mismo trazo sirve para el ícono chico y el diagrama grande. */
-private fun DrawScope.drawShapeFront(
-    shape: Shape,
-    color: Color,
-    strokeWidthUnits: Float,
-    toPx: (Float, Float) -> Offset,
-    unitToPx: Float,
-) {
-    val stroke = Stroke(width = strokeWidthUnits * unitToPx)
-
-    fun polygon(vararg pts: Float): Path {
-        val path = Path()
-        val start = toPx(pts[0], pts[1])
-        path.moveTo(start.x, start.y)
-        var i = 2
-        while (i < pts.size) {
-            val p = toPx(pts[i], pts[i + 1])
-            path.lineTo(p.x, p.y)
-            i += 2
-        }
-        path.close()
-        return path
+private fun polygonOf(vararg pts: Float): List<Offset> {
+    val list = ArrayList<Offset>(pts.size / 2)
+    var i = 0
+    while (i < pts.size) {
+        list.add(Offset(pts[i], pts[i + 1]))
+        i += 2
     }
-
-    fun rect(x: Float, y: Float, w: Float, h: Float) {
-        drawRect(color = color, topLeft = toPx(x, y), size = Size(w * unitToPx, h * unitToPx), style = stroke)
-    }
-
-    when (shape) {
-        Shape.RoundBar -> drawCircle(color, radius = 12f * unitToPx, center = toPx(16f, 16f), style = stroke)
-
-        Shape.SquareBar -> rect(5f, 5f, 22f, 22f)
-
-        Shape.RectangularBar -> rect(4f, 10f, 24f, 12f)
-
-        Shape.HexBar -> drawPath(
-            polygon(16f, 3.5f, 26.8f, 9.75f, 26.8f, 22.25f, 16f, 28.5f, 5.2f, 22.25f, 5.2f, 9.75f),
-            color,
-            style = stroke,
-        )
-
-        Shape.Plate -> rect(3f, 13f, 26f, 6f)
-
-        Shape.RoundTube -> {
-            drawCircle(color, radius = 12f * unitToPx, center = toPx(16f, 16f), style = stroke)
-            drawCircle(color, radius = 7f * unitToPx, center = toPx(16f, 16f), style = stroke)
-        }
-
-        Shape.RectangularTube -> {
-            rect(4f, 8f, 24f, 16f)
-            rect(8.5f, 12.5f, 15f, 7f)
-        }
-
-        Shape.Angle -> drawPath(
-            polygon(7f, 4f, 12f, 4f, 12f, 23f, 28f, 23f, 28f, 28f, 7f, 28f),
-            color,
-            style = stroke,
-        )
-
-        Shape.Channel -> drawPath(
-            polygon(6f, 4f, 26f, 4f, 26f, 9f, 11f, 9f, 11f, 23f, 26f, 23f, 26f, 28f, 6f, 28f),
-            color,
-            style = stroke,
-        )
-
-        Shape.IBeam -> drawPath(
-            polygon(
-                6f, 4f, 26f, 4f, 26f, 9f, 18.5f, 9f, 18.5f, 23f, 26f, 23f,
-                26f, 28f, 6f, 28f, 6f, 23f, 13.5f, 23f, 13.5f, 9f, 6f, 9f,
-            ),
-            color,
-            style = stroke,
-        )
-
-        Shape.TBar -> drawPath(
-            polygon(4f, 4f, 28f, 4f, 28f, 9f, 18.5f, 9f, 18.5f, 28f, 13.5f, 28f, 13.5f, 9f, 4f, 9f),
-            color,
-            style = stroke,
-        )
-    }
+    return list
 }
 
-/** Techo y costado semitransparentes detrás del perfil, para leer la forma como un tramo extruido. */
-private fun DrawScope.drawIsoDepthFaces(bbox: UnitBox, color: Color, toPx: (Float, Float) -> Offset, depthPx: Offset) {
-    val tl = toPx(bbox.left, bbox.top)
-    val tr = toPx(bbox.right, bbox.top)
-    val br = toPx(bbox.right, bbox.bottom)
-    val tlBack = tl + depthPx
-    val trBack = tr + depthPx
-    val brBack = br + depthPx
+/** Contorno (frente) de cada forma en unidades 0..32, como polígono cerrado; null para los redondos. */
+private fun shapeOutline(shape: Shape): List<Offset>? = when (shape) {
+    Shape.SquareBar -> polygonOf(5f, 5f, 27f, 5f, 27f, 27f, 5f, 27f)
+    Shape.RectangularBar -> polygonOf(4f, 10f, 28f, 10f, 28f, 22f, 4f, 22f)
+    Shape.HexBar -> polygonOf(16f, 3.5f, 26.8f, 9.75f, 26.8f, 22.25f, 16f, 28.5f, 5.2f, 22.25f, 5.2f, 9.75f)
+    Shape.Plate -> polygonOf(3f, 13f, 29f, 13f, 29f, 19f, 3f, 19f)
+    Shape.Angle -> polygonOf(7f, 4f, 12f, 4f, 12f, 23f, 28f, 23f, 28f, 28f, 7f, 28f)
+    Shape.Channel -> polygonOf(6f, 4f, 26f, 4f, 26f, 9f, 11f, 9f, 11f, 23f, 26f, 23f, 26f, 28f, 6f, 28f)
+    Shape.IBeam -> polygonOf(
+        6f, 4f, 26f, 4f, 26f, 9f, 18.5f, 9f, 18.5f, 23f, 26f, 23f,
+        26f, 28f, 6f, 28f, 6f, 23f, 13.5f, 23f, 13.5f, 9f, 6f, 9f,
+    )
+    Shape.TBar -> polygonOf(4f, 4f, 28f, 4f, 28f, 9f, 18.5f, 9f, 18.5f, 28f, 13.5f, 28f, 13.5f, 9f, 4f, 9f)
+    Shape.RoundBar, Shape.RoundTube, Shape.RectangularTube -> null
+}
 
-    val top = Path().apply {
-        moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(trBack.x, trBack.y); lineTo(tlBack.x, tlBack.y); close()
+private fun Path.addPolygon(points: List<Offset>, toPx: (Float, Float) -> Offset) {
+    val start = toPx(points[0].x, points[0].y)
+    moveTo(start.x, start.y)
+    for (i in 1 until points.size) {
+        val p = toPx(points[i].x, points[i].y)
+        lineTo(p.x, p.y)
     }
-    drawPath(top, color.copy(alpha = 0.20f))
+    close()
+}
 
-    val side = Path().apply {
-        moveTo(tr.x, tr.y); lineTo(br.x, br.y); lineTo(brBack.x, brBack.y); lineTo(trBack.x, trBack.y); close()
+/** Cara frontal rellena de cada forma (con hueco en los tubos), en unidades 0..32. */
+private fun frontPath(shape: Shape, toPx: (Float, Float) -> Offset, unitToPx: (Float) -> Float): Path {
+    val path = Path()
+    when (shape) {
+        Shape.RoundBar -> {
+            val c = toPx(16f, 16f)
+            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(12f)))
+        }
+        Shape.RoundTube -> {
+            val c = toPx(16f, 16f)
+            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(12f)))
+            path.addOval(androidx.compose.ui.geometry.Rect(center = c, radius = unitToPx(7f)))
+            path.fillType = PathFillType.EvenOdd
+        }
+        Shape.RectangularTube -> {
+            val outerTl = toPx(4f, 8f)
+            val outerBr = toPx(28f, 24f)
+            val innerTl = toPx(8.5f, 12.5f)
+            val innerBr = toPx(23.5f, 19.5f)
+            path.addRect(androidx.compose.ui.geometry.Rect(outerTl, outerBr))
+            path.addRect(androidx.compose.ui.geometry.Rect(innerTl, innerBr))
+            path.fillType = PathFillType.EvenOdd
+        }
+        else -> shapeOutline(shape)?.let { path.addPolygon(it, toPx) }
     }
-    drawPath(side, color.copy(alpha = 0.11f))
-
-    drawLine(color.copy(alpha = 0.3f), tr, trBack, strokeWidth = 1f)
-    drawLine(color.copy(alpha = 0.3f), br, brBack, strokeWidth = 1f)
+    return path
 }
 
 /**
- * Ícono isométrico del perfil de cada forma: cara frontal (el mismo trazo de siempre) más un
- * techo y un costado que sugieren el tramo extruido hacia atrás. Sin assets, todo vectorial.
+ * Ícono isométrico del perfil de cada forma: tres caras con tono propio (techo claro, frente en
+ * el color de acento, costado oscuro) para que se lea como un tramo extruido de verdad, no como
+ * un contorno con transparencia. Sin assets, todo vectorial.
  */
 @Composable
 fun ShapeGlyph(
     shape: Shape,
     color: Color,
     modifier: Modifier = Modifier,
-    strokeWidth: Float = 1.7f,
+    strokeWidth: Float = 1.4f,
 ) {
+    val topColor = lerp(color, Color.White, 0.5f)
+    val sideColor = lerp(color, Color.Black, 0.42f)
+    val outlineColor = lerp(color, Color.Black, 0.55f)
+
     Canvas(modifier = modifier) {
         val virtualW = 38f
         val virtualH = 36f
@@ -195,10 +161,28 @@ fun ShapeGlyph(
         val ox = (size.width - virtualW * u) / 2f
         val oy = (size.height - virtualH * u) / 2f + 3f * u
         fun toPx(x: Float, y: Float) = Offset(ox + x * u, oy + y * u)
-        val depthPx = Offset(6f * u * ISO_COS30, -6f * u * ISO_SIN30)
+        fun unitToPx(v: Float) = v * u
+        val depthPx = Offset(DEPTH_UNITS.x * u, DEPTH_UNITS.y * u)
+        val bbox = shapeBoundingBox(shape)
 
-        drawIsoDepthFaces(shapeBoundingBox(shape), color, ::toPx, depthPx)
-        drawShapeFront(shape, color, strokeWidth, ::toPx, u)
+        val tl = toPx(bbox.left, bbox.top)
+        val tr = toPx(bbox.right, bbox.top)
+        val br = toPx(bbox.right, bbox.bottom)
+        val tlBack = tl + depthPx
+        val trBack = tr + depthPx
+        val brBack = br + depthPx
+
+        val top = Path().apply { moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(trBack.x, trBack.y); lineTo(tlBack.x, tlBack.y); close() }
+        drawPath(top, topColor)
+        drawPath(top, outlineColor, style = Stroke(width = 1f))
+
+        val side = Path().apply { moveTo(tr.x, tr.y); lineTo(br.x, br.y); lineTo(brBack.x, brBack.y); lineTo(trBack.x, trBack.y); close() }
+        drawPath(side, sideColor)
+        drawPath(side, outlineColor, style = Stroke(width = 1f))
+
+        val front = frontPath(shape, ::toPx, ::unitToPx)
+        drawPath(front, color)
+        drawPath(front, outlineColor, style = Stroke(width = strokeWidth * u))
     }
 }
 
@@ -245,50 +229,151 @@ private fun labelSlots(shape: Shape): List<Pair<DimensionType, LabelSlot>> = whe
     )
 }
 
-private fun LabelSlot.glyph(): String = when (this) {
-    LabelSlot.BOTTOM -> "↔"
-    LabelSlot.LEFT -> "↕"
-    LabelSlot.DEPTH -> "↗"
-    LabelSlot.DETAIL -> "▪"
+private data class Tick(val type: DimensionType, val from: Offset, val to: Offset, val labelAt: Offset, val align: TextAlign)
+
+/** Dónde va el tiquete de cada medida "de detalle" (grosores), a mano por forma: bbox no alcanza para ubicarlos. */
+private fun detailTicks(shape: Shape): List<Tick> = when (shape) {
+    Shape.Plate -> listOf(Tick(DimensionType.THICKNESS, Offset(3f, 13f), Offset(3f, 19f), Offset(1.2f, 16f), TextAlign.End))
+    Shape.RoundTube -> listOf(
+        Tick(DimensionType.WALL_THICKNESS, Offset(20.95f, 11.05f), Offset(24.49f, 7.51f), Offset(28.5f, 4.2f), TextAlign.Start),
+    )
+    Shape.RectangularTube -> listOf(
+        Tick(DimensionType.WALL_THICKNESS, Offset(4f, 16f), Offset(8.5f, 16f), Offset(2f, 12.5f), TextAlign.Start),
+    )
+    Shape.Angle -> listOf(Tick(DimensionType.THICKNESS, Offset(20f, 23f), Offset(20f, 28f), Offset(22f, 25.5f), TextAlign.Start))
+    Shape.Channel -> listOf(Tick(DimensionType.THICKNESS, Offset(16f, 4f), Offset(16f, 9f), Offset(18f, 2.5f), TextAlign.Start))
+    Shape.IBeam -> listOf(
+        Tick(DimensionType.WEB_THICKNESS, Offset(13.5f, 16f), Offset(18.5f, 16f), Offset(20.2f, 16f), TextAlign.Start),
+        Tick(DimensionType.FLANGE_THICKNESS, Offset(22f, 4f), Offset(22f, 9f), Offset(28.5f, 8.5f), TextAlign.Start),
+    )
+    Shape.TBar -> listOf(
+        Tick(DimensionType.WEB_THICKNESS, Offset(13.5f, 18f), Offset(18.5f, 18f), Offset(20.2f, 18f), TextAlign.Start),
+        Tick(DimensionType.FLANGE_THICKNESS, Offset(24f, 4f), Offset(24f, 9f), Offset(28.5f, 8.5f), TextAlign.Start),
+    )
+    else -> emptyList()
+}
+
+private data class Callout(val type: DimensionType, val from: Offset, val to: Offset, val labelAt: Offset, val align: TextAlign, val isSpan: Boolean)
+
+private fun calloutsFor(shape: Shape): List<Callout> {
+    val bbox = shapeBoundingBox(shape)
+    val details = detailTicks(shape).associateBy { it.type }
+    return labelSlots(shape).map { (type, slot) ->
+        when (slot) {
+            LabelSlot.BOTTOM -> Callout(
+                type,
+                Offset(bbox.left, bbox.bottom + 1.5f),
+                Offset(bbox.right, bbox.bottom + 1.5f),
+                Offset((bbox.left + bbox.right) / 2f, bbox.bottom + 3.2f),
+                TextAlign.Center,
+                isSpan = true,
+            )
+            LabelSlot.LEFT -> Callout(
+                type,
+                Offset(bbox.left - 1.5f, bbox.top),
+                Offset(bbox.left - 1.5f, bbox.bottom),
+                Offset(bbox.left - 2.2f, (bbox.top + bbox.bottom) / 2f),
+                TextAlign.End,
+                isSpan = true,
+            )
+            LabelSlot.DEPTH -> {
+                val p1 = Offset(bbox.right, bbox.top)
+                val p2 = p1 + DEPTH_UNITS
+                Callout(type, p1, p2, p2 + Offset(1.3f, -0.4f), TextAlign.Start, isSpan = true)
+            }
+            LabelSlot.DETAIL -> {
+                val tick = details.getValue(type)
+                Callout(type, tick.from, tick.to, tick.labelAt, tick.align, isSpan = false)
+            }
+        }
+    }
 }
 
 /**
- * Diagrama de referencia: el mismo perfil isométrico, más grande, con una leyenda debajo que
- * dice a qué dimensión corresponde cada campo del formulario (↔ ancho/lado/diámetro, ↕ alto,
- * ↗ largo — el eje que se extruye — y ▪ para grosores). Pensado para mostrarse una vez, al
- * entrar a llenar las medidas de una forma.
+ * Diagrama de referencia: el mismo perfil isométrico con sombreado de tres caras, más grande,
+ * con las medidas escritas directamente sobre el dibujo — una línea de cota (o un tique corto
+ * para los grosores) que termina en el nombre del campo, igual que un plano técnico.
  */
 @Composable
 fun ShapeIsoDiagram(shape: Shape, modifier: Modifier = Modifier) {
-    val color = MaterialTheme.colorScheme.primary
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Canvas(modifier = Modifier.size(width = 168.dp, height = 132.dp)) {
-            val virtualW = 38f
-            val virtualH = 36f
-            val u = min(size.width / virtualW, size.height / virtualH)
-            val ox = (size.width - virtualW * u) / 2f
-            val oy = (size.height - virtualH * u) / 2f + 3f * u
-            fun toPx(x: Float, y: Float) = Offset(ox + x * u, oy + y * u)
-            val depthPx = Offset(6f * u * ISO_COS30, -6f * u * ISO_SIN30)
+    val accent = MaterialTheme.colorScheme.primary
+    val topColor = lerp(accent, Color.White, 0.5f)
+    val sideColor = lerp(accent, Color.Black, 0.42f)
+    val outlineColor = lerp(accent, Color.Black, 0.55f)
+    val labelColor = MaterialTheme.colorScheme.onSurface
+    val lineColor = accent.copy(alpha = 0.85f)
 
-            drawIsoDepthFaces(shapeBoundingBox(shape), color, ::toPx, depthPx)
-            drawShapeFront(shape, color, 1.7f, ::toPx, u)
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            labelSlots(shape).forEach { (type, slot) ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(
-                        text = slot.glyph(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(dimensionNameRes(type)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+    val uDp = 5f
+    val oxDp = 60f
+    val oyDp = 54f
+    val boxWidthDp = 340f
+    val boxHeightDp = 250f
+    fun toDp(x: Float, y: Float) = Offset(oxDp + x * uDp, oyDp + y * uDp)
+
+    Box(modifier = modifier.size(width = boxWidthDp.dp, height = boxHeightDp.dp), contentAlignment = Alignment.TopStart) {
+        Canvas(modifier = Modifier.size(width = boxWidthDp.dp, height = boxHeightDp.dp)) {
+            fun toPx(x: Float, y: Float) = Offset((oxDp + x * uDp).dp.toPx(), (oyDp + y * uDp).dp.toPx())
+            fun unitToPx(v: Float) = (v * uDp).dp.toPx()
+            val depthPx = Offset(DEPTH_UNITS.x, DEPTH_UNITS.y).let { Offset((it.x * uDp).dp.toPx(), (it.y * uDp).dp.toPx()) }
+            val bbox = shapeBoundingBox(shape)
+
+            val tl = toPx(bbox.left, bbox.top)
+            val tr = toPx(bbox.right, bbox.top)
+            val br = toPx(bbox.right, bbox.bottom)
+            val tlBack = tl + depthPx
+            val trBack = tr + depthPx
+            val brBack = br + depthPx
+
+            val top = Path().apply { moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(trBack.x, trBack.y); lineTo(tlBack.x, tlBack.y); close() }
+            drawPath(top, topColor)
+            drawPath(top, outlineColor, style = Stroke(width = 1.3.dp.toPx()))
+
+            val side = Path().apply { moveTo(tr.x, tr.y); lineTo(br.x, br.y); lineTo(brBack.x, brBack.y); lineTo(trBack.x, trBack.y); close() }
+            drawPath(side, sideColor)
+            drawPath(side, outlineColor, style = Stroke(width = 1.3.dp.toPx()))
+
+            val front = frontPath(shape, ::toPx, ::unitToPx)
+            drawPath(front, accent)
+            drawPath(front, outlineColor, style = Stroke(width = 1.6.dp.toPx()))
+
+            // Líneas de cota: un trazo entre los dos puntos, con un tique perpendicular en cada
+            // extremo (o uno solo para los tiques de detalle, que no cruzan toda la pieza).
+            calloutsFor(shape).forEach { callout ->
+                val p1 = toPx(callout.from.x, callout.from.y)
+                val p2 = toPx(callout.to.x, callout.to.y)
+                val strokeW = 1.2.dp.toPx()
+                drawLine(lineColor, p1, p2, strokeWidth = strokeW)
+                val dir = Offset(p2.x - p1.x, p2.y - p1.y)
+                val len = kotlin.math.sqrt(dir.x * dir.x + dir.y * dir.y).takeIf { it > 0.01f } ?: 1f
+                val perp = Offset(-dir.y / len, dir.x / len) * 3.dp.toPx()
+                drawLine(lineColor, p1 - perp, p1 + perp, strokeWidth = strokeW)
+                if (callout.isSpan) {
+                    drawLine(lineColor, p2 - perp, p2 + perp, strokeWidth = strokeW)
                 }
             }
+        }
+
+        calloutsFor(shape).forEach { callout ->
+            val pos = toDp(callout.labelAt.x, callout.labelAt.y)
+            val boxWidth = if (callout.align == TextAlign.Center) 110.dp else 118.dp
+            val xOffset = when (callout.align) {
+                TextAlign.End -> pos.x - boxWidth.value
+                TextAlign.Center -> pos.x - boxWidth.value / 2f
+                else -> pos.x
+            }
+            Text(
+                text = stringResource(dimensionNameRes(callout.type)),
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+                textAlign = callout.align,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Visible,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = xOffset.dp, y = (pos.y - 7f).dp)
+                    .size(width = boxWidth, height = 16.dp),
+            )
         }
     }
 }
