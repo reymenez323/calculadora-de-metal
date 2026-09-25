@@ -84,6 +84,13 @@ import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
  */
 enum class CalcMode { MATERIA_PRIMA, TORNEADO, FRESADO }
 
+/**
+ * Lo que la barra superior debe mostrar en vez del texto/dropdown, cuando ya se eligió una forma:
+ * su nombre, las dimensiones que pide, y el botón para volver al selector de forma. Sustituye el
+ * espacio en blanco que quedaba arriba al ocultar el subtítulo.
+ */
+data class CalcHeader(val title: String, val subtitle: String, val onBack: () -> Unit)
+
 private data class MaterialRow(val entity: MaterialEntity, val supplierName: String) {
     val shape: Shape? = runCatching { Shape.fromId(entity.stockShapeId) }.getOrNull()
     val dimensions: Map<DimensionType, DimensionValue> =
@@ -124,10 +131,10 @@ fun CalculatorScreen(
     settings: AppSettings,
     modifier: Modifier = Modifier,
     mode: CalcMode = CalcMode.MATERIA_PRIMA,
-    onShapeChosenChange: (Boolean) -> Unit = {},
+    onHeaderChange: (CalcHeader?) -> Unit = {},
 ) {
     if (mode != CalcMode.MATERIA_PRIMA) {
-        LaunchedEffect(Unit) { onShapeChosenChange(false) }
+        LaunchedEffect(Unit) { onHeaderChange(null) }
         ComingSoonScreen(modifier = modifier)
         return
     }
@@ -145,7 +152,15 @@ fun CalculatorScreen(
         suppliers.flatMap { group -> group.materials.map { MaterialRow(it, group.supplier.name) } }
     }
     val selectedShape = selectedShapeId?.let { id -> runCatching { Shape.fromId(id) }.getOrNull() }
-    LaunchedEffect(selectedShape) { onShapeChosenChange(selectedShape != null) }
+    val header = selectedShape?.let { shape ->
+        val dimensionLabels = shape.requiredDimensions.map { stringResource(dimensionNameRes(it)) }
+        CalcHeader(
+            title = stringResource(shapeNameRes(shape)),
+            subtitle = dimensionLabels.joinToString(" · "),
+            onBack = { selectedShapeId = null },
+        )
+    }
+    LaunchedEffect(selectedShapeId) { onHeaderChange(header) }
 
     if (selectedShape == null) {
         ShapePickerScreen(
@@ -219,37 +234,9 @@ fun CalculatorScreen(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            OutlinedButton(
-                onClick = { selectedShapeId = null },
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.size(44.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-            ) {
-                Text("‹", style = MaterialTheme.typography.titleLarge)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(
-                    text = stringResource(shapeNameRes(selectedShape)),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                val dimensionLabels = selectedShape.requiredDimensions.map { stringResource(dimensionNameRes(it)) }
-                Text(
-                    text = dimensionLabels.joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
         SectionCard(title = stringResource(R.string.dim_reference_title)) {
             ShapeIsoDiagram(shape = selectedShape, modifier = Modifier.fillMaxWidth())
         }

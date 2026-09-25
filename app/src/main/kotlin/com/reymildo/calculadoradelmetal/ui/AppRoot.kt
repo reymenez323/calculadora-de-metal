@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
 import com.reymildo.calculadoradelmetal.di.AppContainer
+import com.reymildo.calculadoradelmetal.ui.calc.CalcHeader
 import com.reymildo.calculadoradelmetal.ui.calc.CalcMode
 import com.reymildo.calculadoradelmetal.ui.calc.CalculatorScreen
 import com.reymildo.calculadoradelmetal.ui.settings.SettingsScreen
@@ -94,7 +96,7 @@ private fun AppScaffold(
 ) {
     var tab by remember { mutableStateOf(Tab.CALC) }
     var calcMode by remember { mutableStateOf(CalcMode.MATERIA_PRIMA) }
-    var calcShapeChosen by remember { mutableStateOf(false) }
+    var calcHeader by remember { mutableStateOf<CalcHeader?>(null) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -104,14 +106,34 @@ private fun AppScaffold(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
+                navigationIcon = {
+                    val header = calcHeader
+                    if (tab == Tab.CALC && header != null) {
+                        IconButton(onClick = header.onBack) {
+                            Text("‹", style = MaterialTheme.typography.headlineMedium)
+                        }
+                    }
+                },
                 title = {
                     when (tab) {
-                        Tab.CALC -> if (!calcShapeChosen) {
-                            CalcModeDropdown(
-                                mode = calcMode,
-                                onModeChange = { calcMode = it },
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
+                        Tab.CALC -> {
+                            val header = calcHeader
+                            if (header != null) {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(text = header.title, style = MaterialTheme.typography.titleLarge)
+                                    Text(
+                                        text = header.subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            } else {
+                                CalcModeDropdown(
+                                    mode = calcMode,
+                                    onModeChange = { calcMode = it },
+                                    style = MaterialTheme.typography.headlineMedium,
+                                )
+                            }
                         }
                         Tab.SUPPLIERS -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
@@ -176,7 +198,7 @@ private fun AppScaffold(
                 settings = settings,
                 modifier = Modifier.padding(padding),
                 mode = calcMode,
-                onShapeChosenChange = { calcShapeChosen = it },
+                onHeaderChange = { calcHeader = it },
             )
 
             Tab.SUPPLIERS -> SuppliersScreen(
