@@ -29,7 +29,7 @@ class DefaultDataSeeder {
                 DimensionType.DIAMETER to DimensionValue(1.0, LengthUnit.IN),
                 DimensionType.LENGTH to DimensionValue(20.0, LengthUnit.FT),
             ),
-            technicalMaterialId = "a36",
+            technicalMaterialId = "P",
         ),
         SeedMaterial(
             name = "Acero inoxidable 304",
@@ -39,7 +39,7 @@ class DefaultDataSeeder {
                 DimensionType.LENGTH to DimensionValue(8.0, LengthUnit.FT),
                 DimensionType.THICKNESS to DimensionValue(0.125, LengthUnit.IN),
             ),
-            technicalMaterialId = "ss304",
+            technicalMaterialId = "M",
         ),
         SeedMaterial(
             name = "Acero inoxidable 316",
@@ -49,7 +49,7 @@ class DefaultDataSeeder {
                 DimensionType.LENGTH to DimensionValue(8.0, LengthUnit.FT),
                 DimensionType.THICKNESS to DimensionValue(0.125, LengthUnit.IN),
             ),
-            technicalMaterialId = "ss316",
+            technicalMaterialId = "M",
         ),
         SeedMaterial(
             name = "Aluminio 6061",
@@ -59,7 +59,7 @@ class DefaultDataSeeder {
                 DimensionType.LENGTH to DimensionValue(8.0, LengthUnit.FT),
                 DimensionType.THICKNESS to DimensionValue(0.25, LengthUnit.IN),
             ),
-            technicalMaterialId = "al6061",
+            technicalMaterialId = "N",
         ),
         SeedMaterial(
             name = "Aluminio 6063",
@@ -68,7 +68,7 @@ class DefaultDataSeeder {
                 DimensionType.DIAMETER to DimensionValue(1.0, LengthUnit.IN),
                 DimensionType.LENGTH to DimensionValue(12.0, LengthUnit.FT),
             ),
-            technicalMaterialId = "al6063",
+            technicalMaterialId = "N",
         ),
         SeedMaterial(
             name = "Cobre",

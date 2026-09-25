@@ -53,6 +53,12 @@ import com.reymildo.calculadoradelmetal.ui.common.Tag
 import com.reymildo.calculadoradelmetal.ui.common.machineGlyph
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import com.reymildo.calculadoradelmetal.domain.machining.MachUnit
+import com.reymildo.calculadoradelmetal.ui.common.UnitPicker
+import com.reymildo.calculadoradelmetal.ui.common.isValidDecimalInput
 import kotlinx.coroutines.launch
 
 private val categories = listOf(
@@ -232,17 +238,17 @@ private fun MachineFormSheet(
     var maxRpm by remember { mutableStateOf(text(existing?.maxRpm)) }
     var minRpm by remember { mutableStateOf(text(existing?.minRpm)) }
     var steps by remember { mutableStateOf(existing?.steppedRpmCsv ?: "") }
-    var maxFeed by remember { mutableStateOf(text(existing?.maxFeedMmMin)) }
+    val maxFeed = remember { Amount(text(existing?.maxFeedMmMin), MachUnit.MM_MIN) }
     var threadRpm by remember { mutableStateOf(text(existing?.maxThreadingRpm)) }
     var partRpm by remember { mutableStateOf(text(existing?.maxPartingRpm)) }
-    var power by remember { mutableStateOf(text(existing?.powerKw)) }
-    var swing by remember { mutableStateOf(text(existing?.swingMm)) }
-    var centers by remember { mutableStateOf(text(existing?.centersDistanceMm)) }
-    var chuck by remember { mutableStateOf(text(existing?.chuckMm)) }
-    var bore by remember { mutableStateOf(text(existing?.spindleBoreMm)) }
-    var tx by remember { mutableStateOf(text(existing?.travelXMm)) }
-    var ty by remember { mutableStateOf(text(existing?.travelYMm)) }
-    var tz by remember { mutableStateOf(text(existing?.travelZMm)) }
+    val power = remember { Amount(text(existing?.powerKw), MachUnit.KW) }
+    val swing = remember { Amount(text(existing?.swingMm), MachUnit.MM) }
+    val centers = remember { Amount(text(existing?.centersDistanceMm), MachUnit.MM) }
+    val chuck = remember { Amount(text(existing?.chuckMm), MachUnit.MM) }
+    val bore = remember { Amount(text(existing?.spindleBoreMm), MachUnit.MM) }
+    val tx = remember { Amount(text(existing?.travelXMm), MachUnit.MM) }
+    val ty = remember { Amount(text(existing?.travelYMm), MachUnit.MM) }
+    val tz = remember { Amount(text(existing?.travelZMm), MachUnit.MM) }
     var taper by remember { mutableStateOf(existing?.spindleTaper ?: "") }
     var axes by remember { mutableStateOf(existing?.axes?.toString() ?: "") }
     var toolCapacity by remember { mutableStateOf(existing?.toolCapacity?.toString() ?: "") }
@@ -252,7 +258,7 @@ private fun MachineFormSheet(
     val scope = rememberCoroutineScope()
 
     val rpmValue = maxRpm.toDecimalOrNull()?.takeIf { it > 0 }
-    val feedValue = maxFeed.toDecimalOrNull()?.takeIf { it > 0 }
+    val feedValue = maxFeed.base()
     val lathe = type == MachineType.LATHE
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val typeLabels = MachineType.entries.associateWith { stringResource(if (it == MachineType.LATHE) R.string.machine_type_lathe else R.string.machine_type_mill) }
@@ -328,9 +334,9 @@ private fun MachineFormSheet(
                         shape = RoundedCornerShape(13.dp),
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LabeledNumberField(stringResource(R.string.mach_max_feed_short), maxFeed, { maxFeed = it }, Modifier.weight(1f), suffix = "mm/min")
-                    LabeledNumberField(stringResource(R.string.machines_form_power), power, { power = it }, Modifier.weight(1f), suffix = "kW")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AmountField(stringResource(R.string.mach_max_feed_short), maxFeed, Modifier.fillMaxWidth())
+                    AmountField(stringResource(R.string.machines_form_power), power, Modifier.fillMaxWidth())
                 }
                 if (showErrors && feedValue == null) {
                     Text(stringResource(R.string.machines_form_required), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -345,22 +351,22 @@ private fun MachineFormSheet(
 
             SectionCard(title = stringResource(R.string.machines_form_capacity)) {
                 if (lathe) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledNumberField(stringResource(R.string.machines_form_swing), swing, { swing = it }, Modifier.weight(1f), suffix = "mm")
-                        LabeledNumberField(stringResource(R.string.machines_form_centers), centers, { centers = it }, Modifier.weight(1f), suffix = "mm")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AmountField(stringResource(R.string.machines_form_swing), swing, Modifier.fillMaxWidth())
+                        AmountField(stringResource(R.string.machines_form_centers), centers, Modifier.fillMaxWidth())
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledNumberField(stringResource(R.string.machines_form_chuck), chuck, { chuck = it }, Modifier.weight(1f), suffix = "mm")
-                        LabeledNumberField(stringResource(R.string.machines_form_bore), bore, { bore = it }, Modifier.weight(1f), suffix = "mm")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AmountField(stringResource(R.string.machines_form_chuck), chuck, Modifier.fillMaxWidth())
+                        AmountField(stringResource(R.string.machines_form_bore), bore, Modifier.fillMaxWidth())
                     }
                     LabeledNumberField(
                         stringResource(R.string.machines_form_turret), toolCapacity, { toolCapacity = it }, Modifier.fillMaxWidth(), integer = true,
                     )
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledNumberField("X", tx, { tx = it }, Modifier.weight(1f), suffix = "mm")
-                        LabeledNumberField("Y", ty, { ty = it }, Modifier.weight(1f), suffix = "mm")
-                        LabeledNumberField("Z", tz, { tz = it }, Modifier.weight(1f), suffix = "mm")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AmountField("X", tx, Modifier.fillMaxWidth())
+                        AmountField("Y", ty, Modifier.fillMaxWidth())
+                        AmountField("Z", tz, Modifier.fillMaxWidth())
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -399,16 +405,16 @@ private fun MachineFormSheet(
                         minRpm = minRpm.toDecimalOrNull()?.takeIf { it > 0 },
                         steppedRpmCsv = if (kind == MachineKind.CONVENTIONAL) steps.trim() else "",
                         maxFeedMmMin = feedValue,
-                        powerKw = power.toDecimalOrNull()?.takeIf { it > 0 },
+                        powerKw = power.base(),
                         maxThreadingRpm = if (lathe) threadRpm.toDecimalOrNull()?.takeIf { it > 0 } else null,
                         maxPartingRpm = if (lathe) partRpm.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        swingMm = if (lathe) swing.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        centersDistanceMm = if (lathe) centers.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        chuckMm = if (lathe) chuck.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        spindleBoreMm = if (lathe) bore.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        travelXMm = if (!lathe) tx.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        travelYMm = if (!lathe) ty.toDecimalOrNull()?.takeIf { it > 0 } else null,
-                        travelZMm = if (!lathe) tz.toDecimalOrNull()?.takeIf { it > 0 } else null,
+                        swingMm = if (lathe) swing.base() else null,
+                        centersDistanceMm = if (lathe) centers.base() else null,
+                        chuckMm = if (lathe) chuck.base() else null,
+                        spindleBoreMm = if (lathe) bore.base() else null,
+                        travelXMm = if (!lathe) tx.base() else null,
+                        travelYMm = if (!lathe) ty.base() else null,
+                        travelZMm = if (!lathe) tz.base() else null,
                         spindleTaper = if (!lathe) taper.trim() else "",
                         axes = if (!lathe) axes.toIntOrNull()?.takeIf { it > 0 } else null,
                         toolCapacity = toolCapacity.toIntOrNull()?.takeIf { it > 0 },
@@ -428,4 +434,32 @@ private fun MachineFormSheet(
             Spacer(Modifier.height(20.dp))
         }
     }
+}
+
+/** Cantidad escrita en la unidad que el usuario prefiera; se guarda siempre en la unidad base. */
+private class Amount(text: String, unit: MachUnit) {
+    var text by mutableStateOf(text)
+    var unit by mutableStateOf(unit)
+
+    fun base(): Double? = text.toDecimalOrNull()?.takeIf { it > 0 }?.let { MachUnit.toBase(it, unit) }
+}
+
+@Composable
+private fun AmountField(label: String, amount: Amount, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = amount.text,
+        onValueChange = { if (it.isValidDecimalInput()) amount.text = it },
+        modifier = modifier,
+        singleLine = true,
+        label = { Text(label, maxLines = 1) },
+        trailingIcon = {
+            UnitPicker(amount.unit) { picked ->
+                amount.text.toDecimalOrNull()?.let { amount.text = Fmt.editable(MachUnit.convert(it, amount.unit, picked)) }
+                amount.unit = picked
+            }
+        },
+        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = NumberFamily, fontWeight = FontWeight.Medium),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        shape = RoundedCornerShape(12.dp),
+    )
 }

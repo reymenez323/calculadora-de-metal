@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.reymildo.calculadoradelmetal.domain.machining.MachUnit
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
 
 /** Mosaico seleccionable con icono y texto: la base de los selectores visuales (operación, máquina, tipo). */
@@ -169,6 +171,30 @@ fun DropdownField(
                 options.forEach { (id, text) ->
                     DropdownMenuItem(text = { Text(text) }, onClick = { onSelect(id); expanded = false })
                 }
+            }
+        }
+    }
+}
+
+/** Botón con la unidad actual; al tocarlo lista las demás unidades de la misma magnitud. */
+@Composable
+fun UnitPicker(
+    unit: MachUnit,
+    suffix: String = "",
+    modifier: Modifier = Modifier,
+    onSelect: (MachUnit) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        TextButton(onClick = { expanded = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+            Text(unit.symbol + suffix + " ⌄", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            MachUnit.of(unit.quantity).forEach { candidate ->
+                DropdownMenuItem(
+                    text = { Text(candidate.symbol + suffix) },
+                    onClick = { onSelect(candidate); expanded = false },
+                )
             }
         }
     }

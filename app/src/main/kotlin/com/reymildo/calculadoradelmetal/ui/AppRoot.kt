@@ -4,9 +4,7 @@ package com.reymildo.calculadoradelmetal.ui
 
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.res.Configuration
-import androidx.activity.result.ActivityResultRegistryOwner
-import androidx.activity.compose.LocalActivityResultRegistryOwner
+import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,16 +40,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
-import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.SupplierWithMaterials
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
+import com.reymildo.calculadoradelmetal.data.settings.LanguagePrefs
 import com.reymildo.calculadoradelmetal.di.AppContainer
 import com.reymildo.calculadoradelmetal.ui.calc.CalcHeader
 import com.reymildo.calculadoradelmetal.ui.calc.CalcMode
@@ -68,15 +64,13 @@ import com.reymildo.calculadoradelmetal.ui.workshop.MachiningLibraryScreen
 import com.reymildo.calculadoradelmetal.ui.workshop.WorkshopHost
 import com.reymildo.calculadoradelmetal.ui.workshop.WorkshopSection
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 private enum class Tab { CALC, WORKSHOP, SETTINGS }
 
-/** Busca la Activity (o cualquier dueño del registro de resultados) detrás de los ContextWrapper. */
-private fun Context.findActivityResultOwner(): ActivityResultRegistryOwner? {
+private fun Context.findActivity(): Activity? {
     var current: Context? = this
     while (current != null) {
-        if (current is ActivityResultRegistryOwner) return current
+        if (current is Activity) return current
         current = (current as? ContextWrapper)?.baseContext
     }
     return null
@@ -91,53 +85,38 @@ fun AppRoot(container: AppContainer) {
         .observeSuppliersWithMaterials()
         .collectAsState(initial = emptyList())
     val machineProfiles by container.machineProfileRepository.observeAll().collectAsState(initial = emptyList())
-    val machiningMaterials by container.machiningRepository.observeMaterials().collectAsState(initial = emptyList())
     val tools by container.machiningRepository.observeTools().collectAsState(initial = emptyList())
 
-    // Idioma en caliente: se reescribe el Context para que stringResource lea values-en/.
-    val baseContext = LocalContext.current
-    val localizedContext = remember(settings.language, baseContext) {
-        val configuration = Configuration(baseContext.resources.configuration)
-        configuration.setLocale(Locale.forLanguageTag(settings.language.tag))
-        baseContext.createConfigurationContext(configuration)
+    // El idioma se aplica a la Activity entera (MainActivity.attachBaseContext), no solo a este árbol:
+    // Compose resuelve los textos de diálogos, hojas y menús desde la Activity, y con el idioma del
+    // teléfono en inglés esas ventanas salían en inglés. Aquí se mantiene al día la copia síncrona
+    // y, si cambió (o es la primera vez tras actualizar), se recrea la Activity para aplicarlo.
+    val context = LocalContext.current
+    LaunchedEffect(loadedSettings?.language) {
+        val language = loadedSettings?.language ?: return@LaunchedEffect
+        if (LanguagePrefs.read(context) != language.tag) {
+            LanguagePrefs.write(context, language.tag)
+            context.findActivity()?.recreate()
+        }
     }
-    // createConfigurationContext devuelve un contexto que ya NO envuelve a la Activity, así que
-    // rememberLauncherForActivityResult (Configuración: exportar/importar respaldo) no encontraba
-    // el registro de resultados y la app se cerraba al abrir esa pestaña.
-    val activityResultOwner = remember(baseContext) { baseContext.findActivityResultOwner() }
 
     var showSplash by rememberSaveable { mutableStateOf(true) }
 
     CalculadoraTheme {
-        CompositionLocalProvider(
-            LocalContext provides localizedContext,
-            LocalConfiguration provides localizedContext.resources.configuration,
-        ) {
-            val content: @Composable () -> Unit = {
-                if (showSplash) {
-                    SplashScreen(
-                        dataReady = loadedSettings != null && suppliers.isNotEmpty() && machineProfiles.isNotEmpty() &&
-                            machiningMaterials.isNotEmpty() && tools.isNotEmpty(),
-                        onFinished = { showSplash = false },
-                    )
-                } else {
-                    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-                        AppScaffold(
-                            container = container,
-                            settings = settings,
-                            suppliers = suppliers,
-                            machineProfiles = machineProfiles,
-                            machiningMaterials = machiningMaterials,
-                            tools = tools,
-                        )
-                    }
-                }
-            }
-            val owner = activityResultOwner
-            if (owner != null) {
-                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) { content() }
-            } else {
-                content()
+        if (showSplash) {
+            SplashScreen(
+                dataReady = loadedSettings != null && suppliers.isNotEmpty() && machineProfiles.isNotEmpty() && tools.isNotEmpty(),
+                onFinished = { showSplash = false },
+            )
+        } else {
+            Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                AppScaffold(
+                    container = container,
+                    settings = settings,
+                    suppliers = suppliers,
+                    machineProfiles = machineProfiles,
+                    tools = tools,
+                )
             }
         }
     }
@@ -149,7 +128,6 @@ private fun AppScaffold(
     settings: AppSettings,
     suppliers: List<SupplierWithMaterials>,
     machineProfiles: List<MachineProfileEntity>,
-    machiningMaterials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
 ) {
     var tab by rememberSaveable { mutableStateOf(Tab.CALC) }
@@ -284,7 +262,6 @@ private fun AppScaffold(
                 MachiningScreen(
                     mode = calcMode,
                     machines = machineProfiles,
-                    materials = machiningMaterials,
                     tools = tools,
                     modifier = Modifier.padding(padding),
                     onOpenMachines = {
@@ -302,7 +279,6 @@ private fun AppScaffold(
                 when (section) {
                     WorkshopSection.STOCK -> SuppliersScreen(
                         suppliers = suppliers,
-                        machiningMaterials = machiningMaterials,
                         settings = settings,
                         modifier = sectionModifier,
                         onSaveMaterial = { supplierId, existing, name, shape, dimensions, price, technicalMaterialId ->
@@ -346,10 +322,7 @@ private fun AppScaffold(
                     )
 
                     WorkshopSection.MACHINING -> MachiningLibraryScreen(
-                        materials = machiningMaterials,
                         tools = tools,
-                        onSaveMaterial = { container.machiningRepository.saveMaterial(it) },
-                        onDeleteMaterial = { material -> scope.launch { container.machiningRepository.deleteMaterial(material) } },
                         onSaveTool = { tool, recommendations -> container.machiningRepository.saveTool(tool, recommendations) },
                         onDeleteTool = { tool -> scope.launch { container.machiningRepository.deleteTool(tool) } },
                         modifier = sectionModifier,

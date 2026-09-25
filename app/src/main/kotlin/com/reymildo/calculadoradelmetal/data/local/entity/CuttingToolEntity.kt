@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.reymildo.calculadoradelmetal.domain.machining.IsoGroup
 import com.reymildo.calculadoradelmetal.domain.machining.MachineType
 import com.reymildo.calculadoradelmetal.domain.machining.ToolKind
 import kotlinx.serialization.Serializable
@@ -31,20 +32,22 @@ data class CuttingToolEntity(
     fun fits(type: MachineType): Boolean = machineType == "BOTH" || machineType == type.name
 }
 
-/** Valores recomendados por el fabricante para una herramienta trabajando un material. */
+/**
+ * Valores recomendados por el fabricante para una herramienta en un grupo ISO. Los fabricantes no
+ * dan datos por material concreto sino por grupo (P, M, K, N, S, H).
+ */
 @Serializable
 @Entity(
     tableName = "tool_recommendations",
     foreignKeys = [
         ForeignKey(entity = CuttingToolEntity::class, parentColumns = ["id"], childColumns = ["toolId"], onDelete = ForeignKey.CASCADE),
-        ForeignKey(entity = MachiningMaterialEntity::class, parentColumns = ["id"], childColumns = ["materialId"], onDelete = ForeignKey.CASCADE),
     ],
-    indices = [Index("toolId"), Index("materialId")],
+    indices = [Index("toolId")],
 )
 data class ToolRecommendationEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val toolId: Long,
-    val materialId: String,
+    val isoGroup: String = IsoGroup.P.name,
     val vcMin: Double,
     val vcStart: Double,
     val vcMax: Double,

@@ -4,7 +4,7 @@ import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
 import com.reymildo.calculadoradelmetal.data.repository.MachiningRepository
 import com.reymildo.calculadoradelmetal.domain.machining.MachineType
 import com.reymildo.calculadoradelmetal.domain.machining.MachiningCatalog
-import com.reymildo.calculadoradelmetal.domain.machining.MaterialCategory
+import com.reymildo.calculadoradelmetal.domain.machining.IsoGroup
 import com.reymildo.calculadoradelmetal.domain.machining.ToolKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,20 +14,20 @@ import org.junit.Test
 class MachiningCatalogTest {
     @Test
     fun `every category has ordered generic ranges for every tool kind and operation family`() {
-        for (category in MaterialCategory.entries) for (kind in ToolKind.entries) for (turning in listOf(true, false)) {
-            val r = MachiningCatalog.generic(category, kind, turning)
-            assertTrue("$category $kind", r.cuttingSpeedMinMMin <= r.cuttingSpeedStartMMin && r.cuttingSpeedStartMMin <= r.cuttingSpeedMaxMMin)
-            assertTrue("$category $kind", r.feedMinMm <= r.feedStartMm && r.feedStartMm <= r.feedMaxMm)
+        for (group in IsoGroup.entries) for (kind in ToolKind.entries) for (turning in listOf(true, false)) {
+            val r = MachiningCatalog.generic(group, kind, turning)
+            assertTrue("$group $kind", r.cuttingSpeedMinMMin <= r.cuttingSpeedStartMMin && r.cuttingSpeedStartMMin <= r.cuttingSpeedMaxMMin)
+            assertTrue("$group $kind", r.feedMinMm <= r.feedStartMm && r.feedStartMm <= r.feedMaxMm)
             assertTrue(r.cuttingSpeedMinMMin > 0 && r.feedMinMm > 0)
         }
     }
 
     @Test
     fun `hss generic values are more conservative than carbide`() {
-        for (category in MaterialCategory.entries) for (turning in listOf(true, false)) {
-            val hss = MachiningCatalog.generic(category, ToolKind.HSS, turning)
-            val carbide = MachiningCatalog.generic(category, ToolKind.CARBIDE_INSERT, turning)
-            assertTrue("$category", hss.cuttingSpeedStartMMin < carbide.cuttingSpeedStartMMin)
+        for (group in IsoGroup.entries) for (turning in listOf(true, false)) {
+            val hss = MachiningCatalog.generic(group, ToolKind.HSS, turning)
+            val carbide = MachiningCatalog.generic(group, ToolKind.CARBIDE_INSERT, turning)
+            assertTrue("$group", hss.cuttingSpeedStartMMin < carbide.cuttingSpeedStartMMin)
         }
     }
 
@@ -41,7 +41,6 @@ class MachiningCatalogTest {
         assertTrue(endMill.fits(MachineType.MILL))
         val hss = MachiningRepository.builtInTools.first { it.toolKind == ToolKind.HSS }
         assertTrue(hss.fits(MachineType.LATHE) && hss.fits(MachineType.MILL))
-        assertEquals(setOf("a36", "ss304", "ss316", "al6061", "al6063"), MachiningRepository.builtInMaterials.map { it.id }.toSet())
     }
 
     @Test

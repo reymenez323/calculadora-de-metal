@@ -1,0 +1,562 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "93ed3734cbad9ba999af17e180b4ef8e",
+    "entities": [
+      {
+        "tableName": "suppliers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `isBuiltIn` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isBuiltIn",
+            "columnName": "isBuiltIn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "materials",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `supplierId` INTEGER NOT NULL, `name` TEXT NOT NULL, `stockShapeId` TEXT NOT NULL, `stockDimensionsJson` TEXT NOT NULL, `stockPrice` REAL NOT NULL, `costPerVolumeCm3` REAL NOT NULL, `priceConfigured` INTEGER NOT NULL, `currencyCode` TEXT, `technicalMaterialId` TEXT, `isBuiltIn` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, FOREIGN KEY(`supplierId`) REFERENCES `suppliers`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supplierId",
+            "columnName": "supplierId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stockShapeId",
+            "columnName": "stockShapeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stockDimensionsJson",
+            "columnName": "stockDimensionsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stockPrice",
+            "columnName": "stockPrice",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "costPerVolumeCm3",
+            "columnName": "costPerVolumeCm3",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priceConfigured",
+            "columnName": "priceConfigured",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currencyCode",
+            "columnName": "currencyCode",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "technicalMaterialId",
+            "columnName": "technicalMaterialId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isBuiltIn",
+            "columnName": "isBuiltIn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_materials_supplierId",
+            "unique": false,
+            "columnNames": [
+              "supplierId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_materials_supplierId` ON `${TABLE_NAME}` (`supplierId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "suppliers",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "supplierId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "machine_profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `kind` TEXT NOT NULL, `maxRpm` REAL NOT NULL, `maxFeedMmMin` REAL NOT NULL, `steppedRpmCsv` TEXT NOT NULL, `maxThreadingRpm` REAL, `maxPartingRpm` REAL, `isBuiltIn` INTEGER NOT NULL, `machineType` TEXT NOT NULL, `brand` TEXT NOT NULL, `model` TEXT NOT NULL, `minRpm` REAL, `powerKw` REAL, `swingMm` REAL, `centersDistanceMm` REAL, `chuckMm` REAL, `spindleBoreMm` REAL, `travelXMm` REAL, `travelYMm` REAL, `travelZMm` REAL, `spindleTaper` TEXT NOT NULL, `axes` INTEGER, `toolCapacity` INTEGER, `notes` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxRpm",
+            "columnName": "maxRpm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxFeedMmMin",
+            "columnName": "maxFeedMmMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "steppedRpmCsv",
+            "columnName": "steppedRpmCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxThreadingRpm",
+            "columnName": "maxThreadingRpm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "maxPartingRpm",
+            "columnName": "maxPartingRpm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isBuiltIn",
+            "columnName": "isBuiltIn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "machineType",
+            "columnName": "machineType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brand",
+            "columnName": "brand",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "model",
+            "columnName": "model",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minRpm",
+            "columnName": "minRpm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "powerKw",
+            "columnName": "powerKw",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "swingMm",
+            "columnName": "swingMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "centersDistanceMm",
+            "columnName": "centersDistanceMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "chuckMm",
+            "columnName": "chuckMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "spindleBoreMm",
+            "columnName": "spindleBoreMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "travelXMm",
+            "columnName": "travelXMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "travelYMm",
+            "columnName": "travelYMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "travelZMm",
+            "columnName": "travelZMm",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "spindleTaper",
+            "columnName": "spindleTaper",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "axes",
+            "columnName": "axes",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "toolCapacity",
+            "columnName": "toolCapacity",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "machining_materials",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `condition` TEXT NOT NULL, `hardness` TEXT NOT NULL, `notes` TEXT NOT NULL, `isBuiltIn` INTEGER NOT NULL, `isoCode` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "condition",
+            "columnName": "condition",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hardness",
+            "columnName": "hardness",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isBuiltIn",
+            "columnName": "isBuiltIn",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isoCode",
+            "columnName": "isoCode",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "cutting_tools",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `kind` TEXT NOT NULL, `machineType` TEXT NOT NULL, `brand` TEXT NOT NULL, `code` TEXT NOT NULL, `coating` TEXT NOT NULL, `notes` TEXT NOT NULL, `isBuiltIn` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "machineType",
+            "columnName": "machineType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brand",
+            "columnName": "brand",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coating",
+            "columnName": "coating",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isBuiltIn",
+            "columnName": "isBuiltIn",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "tool_recommendations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `toolId` INTEGER NOT NULL, `isoGroup` TEXT NOT NULL, `vcMin` REAL NOT NULL, `vcStart` REAL NOT NULL, `vcMax` REAL NOT NULL, `feedMin` REAL NOT NULL, `feedStart` REAL NOT NULL, `feedMax` REAL NOT NULL, `depthMaxMm` REAL, FOREIGN KEY(`toolId`) REFERENCES `cutting_tools`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "toolId",
+            "columnName": "toolId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isoGroup",
+            "columnName": "isoGroup",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vcMin",
+            "columnName": "vcMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vcStart",
+            "columnName": "vcStart",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vcMax",
+            "columnName": "vcMax",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedMin",
+            "columnName": "feedMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedStart",
+            "columnName": "feedStart",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedMax",
+            "columnName": "feedMax",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "depthMaxMm",
+            "columnName": "depthMaxMm",
+            "affinity": "REAL",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tool_recommendations_toolId",
+            "unique": false,
+            "columnNames": [
+              "toolId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tool_recommendations_toolId` ON `${TABLE_NAME}` (`toolId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "cutting_tools",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "toolId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '93ed3734cbad9ba999af17e180b4ef8e')"
+    ]
+  }
+}

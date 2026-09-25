@@ -4,7 +4,11 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import com.reymildo.calculadoradelmetal.domain.machining.MachUnit
 import com.reymildo.calculadoradelmetal.domain.machining.MachiningDraft
+import com.reymildo.calculadoradelmetal.domain.machining.MachiningLinks
+import com.reymildo.calculadoradelmetal.domain.machining.Quantity
+import com.reymildo.calculadoradelmetal.domain.machining.unitOf
 import com.reymildo.calculadoradelmetal.domain.machining.MachiningUnitSystem
 import com.reymildo.calculadoradelmetal.domain.machining.MillingOperation
 import com.reymildo.calculadoradelmetal.domain.machining.TurningOperation
@@ -14,10 +18,10 @@ import kotlinx.serialization.json.Json
 class MachiningViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val _turning = mutableStateOf(load(TURNING_KEY) ?: defaultTurning())
+    private val _turning = mutableStateOf(MachiningLinks.recompute(load(TURNING_KEY) ?: defaultTurning()))
     val turning: State<MachiningDraft> = _turning
 
-    private val _milling = mutableStateOf(load(MILLING_KEY) ?: defaultMilling())
+    private val _milling = mutableStateOf(MachiningLinks.recompute(load(MILLING_KEY) ?: defaultMilling()))
     val milling: State<MachiningDraft> = _milling
 
     fun updateTurning(transform: (MachiningDraft) -> MachiningDraft) {
@@ -30,20 +34,21 @@ class MachiningViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         save(MILLING_KEY, _milling.value)
     }
 
+    /** Pone todos los valores en el sistema elegido (atajo); cada campo puede cambiarse luego por separado. */
     fun switchUnits(turning: Boolean, target: MachiningUnitSystem) {
         val source = if (turning) _turning.value else _milling.value
-        if (source.unitSystem == target) return
         val lengthKeys = if (turning) TURNING_LENGTH_KEYS else MILLING_LENGTH_KEYS
-        val speedKeys = setOf("vc")
-        val converted = source.fields.mapValues { (key, raw) ->
-            val value = raw.replace(',', '.').toDoubleOrNull() ?: return@mapValues raw
-            when (key) {
-                in lengthKeys -> format(if (target == MachiningUnitSystem.IMPERIAL) value / 25.4 else value * 25.4)
-                in speedKeys -> format(if (target == MachiningUnitSystem.IMPERIAL) value * 3.280839895 else value / 3.280839895)
-                else -> raw
-            }
+        val quantities = lengthKeys.associateWith { Quantity.LENGTH } + ("vc" to Quantity.CUTTING_SPEED) + ("vf" to Quantity.FEED_RATE)
+        val units = source.fieldUnits.toMutableMap()
+        val converted = source.fields.toMutableMap()
+        quantities.forEach { (key, quantity) ->
+            val from = source.unitOf(key, quantity)
+            val to = MachUnit.default(target, quantity)
+            val value = source.fields[key]?.replace(',', '.')?.toDoubleOrNull()
+            if (value != null && from != to) converted[key] = format(MachUnit.convert(value, from, to))
+            units[key] = to.name
         }
-        val next = source.copy(fields = converted, unitSystem = target)
+        val next = source.copy(fields = converted, unitSystem = target, fieldUnits = units)
         if (turning) {
             _turning.value = next
             save(TURNING_KEY, next)

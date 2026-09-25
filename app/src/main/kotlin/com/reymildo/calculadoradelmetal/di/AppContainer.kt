@@ -19,7 +19,7 @@ class AppContainer(context: Context) {
         context.applicationContext,
         AppDatabase::class.java,
         AppDatabase.DATABASE_NAME,
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
 
     private val seeder = DefaultDataSeeder()
 
@@ -114,6 +114,72 @@ class AppContainer(context: Context) {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_tool_recommendations_toolId ON tool_recommendations (toolId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_tool_recommendations_materialId ON tool_recommendations (materialId)")
+            }
+        }
+
+        /**
+         * Los valores del fabricante pasan de "por material" a "por grupo ISO" (P, M, K, N, S, H),
+         * que es como los publican los fabricantes. Los ya guardados se llevan al grupo de su
+         * material; si dos materiales caían en el mismo grupo, se conserva uno.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS tool_recommendations_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, toolId INTEGER NOT NULL, isoGroup TEXT NOT NULL, " +
+                        "vcMin REAL NOT NULL, vcStart REAL NOT NULL, vcMax REAL NOT NULL, feedMin REAL NOT NULL, " +
+                        "feedStart REAL NOT NULL, feedMax REAL NOT NULL, depthMaxMm REAL, " +
+                        "FOREIGN KEY(toolId) REFERENCES cutting_tools(id) ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "INSERT INTO tool_recommendations_new (toolId, isoGroup, vcMin, vcStart, vcMax, feedMin, feedStart, feedMax, depthMaxMm) " +
+                        "SELECT toolId, iso, vcMin, vcStart, vcMax, feedMin, feedStart, feedMax, depthMaxMm FROM (" +
+                        "SELECT r.toolId AS toolId, CASE m.category " +
+                        "WHEN 'STAINLESS' THEN 'M' WHEN 'CAST_IRON' THEN 'K' WHEN 'ALUMINUM' THEN 'N' " +
+                        "WHEN 'COPPER_ALLOY' THEN 'N' WHEN 'PLASTIC' THEN 'N' WHEN 'TITANIUM' THEN 'S' " +
+                        "WHEN 'HARDENED_STEEL' THEN 'H' ELSE 'P' END AS iso, " +
+                        "r.vcMin AS vcMin, r.vcStart AS vcStart, r.vcMax AS vcMax, r.feedMin AS feedMin, " +
+                        "r.feedStart AS feedStart, r.feedMax AS feedMax, r.depthMaxMm AS depthMaxMm " +
+                        "FROM tool_recommendations r JOIN machining_materials m ON m.id = r.materialId " +
+                        "ORDER BY r.id) GROUP BY toolId, iso",
+                )
+                db.execSQL("DROP TABLE tool_recommendations")
+                db.execSQL("ALTER TABLE tool_recommendations_new RENAME TO tool_recommendations")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_tool_recommendations_toolId ON tool_recommendations (toolId)")
+            }
+        }
+
+        /** Subgrupo ISO (P1, N2…) en los materiales de mecanizado; los de fábrica reciben el suyo. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE machining_materials ADD COLUMN isoCode TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE machining_materials SET isoCode = 'P1' WHERE id = 'a36'")
+                db.execSQL("UPDATE machining_materials SET isoCode = 'M2' WHERE id IN ('ss304', 'ss316')")
+                db.execSQL("UPDATE machining_materials SET isoCode = 'N1' WHERE id IN ('al6061', 'al6063')")
+            }
+        }
+
+        /**
+         * Los materiales de mecanizado pasan a ser solo los seis grupos ISO (P, M, K, N, S, H), sin
+         * subgrupos ni materiales sueltos. Lo ya vinculado se lleva a la letra de su familia y los
+         * valores del fabricante por subgrupo (N2…) se reducen a su letra (se conserva uno por letra).
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE materials SET technicalMaterialId = (SELECT CASE m.category " +
+                        "WHEN 'STAINLESS' THEN 'M' WHEN 'CAST_IRON' THEN 'K' WHEN 'ALUMINUM' THEN 'N' " +
+                        "WHEN 'COPPER_ALLOY' THEN 'N' WHEN 'PLASTIC' THEN 'N' WHEN 'TITANIUM' THEN 'S' " +
+                        "WHEN 'HARDENED_STEEL' THEN 'H' ELSE 'P' END " +
+                        "FROM machining_materials m WHERE m.id = materials.technicalMaterialId) " +
+                        "WHERE technicalMaterialId IS NOT NULL",
+                )
+                db.execSQL("UPDATE tool_recommendations SET isoGroup = substr(isoGroup, 1, 1)")
+                db.execSQL(
+                    "DELETE FROM tool_recommendations WHERE id NOT IN " +
+                        "(SELECT MIN(id) FROM tool_recommendations GROUP BY toolId, isoGroup)",
+                )
+                db.execSQL("DROP TABLE machining_materials")
             }
         }
     }

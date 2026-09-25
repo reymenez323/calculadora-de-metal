@@ -7,31 +7,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
-import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MachiningDao {
-    @Query("SELECT * FROM machining_materials ORDER BY isBuiltIn DESC, name")
-    fun observeMaterials(): Flow<List<MachiningMaterialEntity>>
-
-    @Query("SELECT * FROM machining_materials ORDER BY id")
-    suspend fun listMaterials(): List<MachiningMaterialEntity>
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMaterialIfAbsent(material: MachiningMaterialEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertMaterial(material: MachiningMaterialEntity)
-
-    @Delete
-    suspend fun deleteMaterial(material: MachiningMaterialEntity)
-
-    @Query("DELETE FROM machining_materials")
-    suspend fun deleteAllMaterials()
-
     @Transaction
     @Query("SELECT * FROM cutting_tools ORDER BY isBuiltIn DESC, name")
     fun observeTools(): Flow<List<ToolWithRecommendations>>

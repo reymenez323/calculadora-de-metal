@@ -13,8 +13,12 @@ enum class MillingOperation { FACE, CONTOUR, SLOT }
 
 enum class ToolKind { HSS, CARBIDE_INSERT, CARBIDE_ENDMILL }
 
-/** Familia del material a mecanizar; sirve para elegir el valor genérico conservador. */
-enum class MaterialCategory { CARBON_STEEL, ALLOY_STEEL, STAINLESS, ALUMINUM, CAST_IRON, COPPER_ALLOY, TITANIUM, PLASTIC }
+/**
+ * Grupos de material de la norma ISO 513, los que usan los fabricantes para clasificar sus insertos
+ * (P azul, M amarillo, K rojo, N verde, S naranja, H gris).
+ */
+enum class IsoGroup { P, M, K, N, S, H }
+
 
 data class MachineLimits(
     val kind: MachineKind,
@@ -37,6 +41,8 @@ data class CuttingRecommendation(
     val feedMaxMm: Double,
     val depthMaxMm: Double? = null,
     val source: RecommendationSource = RecommendationSource.GENERIC,
+    /** Código ISO del que salió el valor del fabricante ("N" o "N2"). */
+    val isoCode: String? = null,
 )
 
 data class PassPlan(
@@ -95,8 +101,10 @@ data class MachiningDraft(
     val operation: String,
     val fields: Map<String, String> = emptyMap(),
     val unitSystem: MachiningUnitSystem = MachiningUnitSystem.METRIC,
-    val materialId: String = "a36",
+    val materialId: String = IsoGroup.P.name,
     val toolId: Long? = null,
     val machineProfileId: Long? = null,
     val recommendationApplied: Boolean = false,
+    /** Unidad elegida campo a campo (nombre de [MachUnit]); lo que falte usa la del sistema elegido. */
+    val fieldUnits: Map<String, String> = emptyMap(),
 )

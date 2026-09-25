@@ -44,38 +44,29 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
-import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
+import com.reymildo.calculadoradelmetal.domain.machining.IsoGroup
+import com.reymildo.calculadoradelmetal.domain.machining.MachUnit
 import com.reymildo.calculadoradelmetal.domain.machining.MachineType
-import com.reymildo.calculadoradelmetal.domain.machining.MaterialCategory
 import com.reymildo.calculadoradelmetal.domain.machining.ToolKind
 import com.reymildo.calculadoradelmetal.ui.common.ChoiceTile
 import com.reymildo.calculadoradelmetal.ui.common.DropdownField
 import com.reymildo.calculadoradelmetal.ui.common.Fmt
 import com.reymildo.calculadoradelmetal.ui.common.Glyph
+import com.reymildo.calculadoradelmetal.ui.common.IsoBadge
+import com.reymildo.calculadoradelmetal.ui.common.IsoGroupPicker
+import com.reymildo.calculadoradelmetal.ui.common.isoDescription
+import com.reymildo.calculadoradelmetal.ui.common.isoName
 import com.reymildo.calculadoradelmetal.ui.common.GlyphIcon
 import com.reymildo.calculadoradelmetal.ui.common.LabeledNumberField
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.Tag
+import com.reymildo.calculadoradelmetal.ui.common.UnitPicker
 import com.reymildo.calculadoradelmetal.ui.common.machineGlyph
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.common.toolGlyph
 import kotlinx.coroutines.launch
-
-@Composable
-private fun categoryLabel(category: MaterialCategory): String = stringResource(
-    when (category) {
-        MaterialCategory.CARBON_STEEL -> R.string.cat_carbon_steel
-        MaterialCategory.ALLOY_STEEL -> R.string.cat_alloy_steel
-        MaterialCategory.STAINLESS -> R.string.cat_stainless
-        MaterialCategory.ALUMINUM -> R.string.cat_aluminum
-        MaterialCategory.CAST_IRON -> R.string.cat_cast_iron
-        MaterialCategory.COPPER_ALLOY -> R.string.cat_copper_alloy
-        MaterialCategory.TITANIUM -> R.string.cat_titanium
-        MaterialCategory.PLASTIC -> R.string.cat_plastic
-    },
-)
 
 @Composable
 private fun toolKindLabel(kind: ToolKind): String = stringResource(
@@ -97,10 +88,7 @@ private fun machineTypeLabel(type: String): String = stringResource(
 
 @Composable
 fun MachiningLibraryScreen(
-    materials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
-    onSaveMaterial: suspend (MachiningMaterialEntity) -> Result<Unit>,
-    onDeleteMaterial: (MachiningMaterialEntity) -> Unit,
     onSaveTool: suspend (CuttingToolEntity, List<ToolRecommendationEntity>) -> Result<Long>,
     onDeleteTool: (CuttingToolEntity) -> Unit,
     modifier: Modifier = Modifier,
@@ -125,29 +113,22 @@ fun MachiningLibraryScreen(
             )
         }
         if (showTools) {
-            ToolsList(materials, tools, onSaveTool, onDeleteTool, Modifier.weight(1f))
+            ToolsList(tools, onSaveTool, onDeleteTool, Modifier.weight(1f))
         } else {
-            MaterialsList(materials, onSaveMaterial, onDeleteMaterial, Modifier.weight(1f))
+            MaterialsList(Modifier.weight(1f))
         }
     }
 }
 
+/** Los materiales de mecanizado son los seis grupos ISO, uno por letra, en formato compacto. */
 @Composable
-private fun MaterialsList(
-    materials: List<MachiningMaterialEntity>,
-    onSave: suspend (MachiningMaterialEntity) -> Result<Unit>,
-    onDelete: (MachiningMaterialEntity) -> Unit,
-    modifier: Modifier,
-) {
-    var editing by remember { mutableStateOf<MachiningMaterialEntity?>(null) }
-    var creating by remember { mutableStateOf(false) }
-    var deleteTarget by remember { mutableStateOf<MachiningMaterialEntity?>(null) }
-    val builtInLabel = stringResource(R.string.sup_builtin)
-
+private fun MaterialsList(modifier: Modifier) {
+    val names = IsoGroup.entries.associateWith { isoName(it) }
+    val descriptions = IsoGroup.entries.associateWith { isoDescription(it) }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "hint") {
             Text(
@@ -156,42 +137,36 @@ private fun MaterialsList(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        items(count = materials.size, key = { materials[it].id }) { index ->
-            val material = materials[index]
-            LibraryCard(
-                glyph = Glyph.MATERIAL_CUBE,
-                title = material.name,
-                tags = buildList {
-                    add(categoryLabel(material.materialCategory) to true)
-                    if (material.isBuiltIn) add(builtInLabel to false)
-                },
-                detail = listOf(material.condition, material.hardness).filter { it.isNotBlank() }.joinToString(" · "),
-                onEdit = { editing = material },
-                onDelete = if (material.isBuiltIn) null else ({ deleteTarget = material }),
-            )
+        items(count = IsoGroup.entries.size, key = { IsoGroup.entries[it].name }) { index ->
+            val group = IsoGroup.entries[index]
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    IsoBadge(group, size = 40.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(names.getValue(group), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            descriptions.getValue(group),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
-        item(key = "add") {
-            AddButton(stringResource(R.string.lib_add_material)) { creating = true }
-        }
-    }
-
-    if (creating || editing != null) {
-        MaterialFormSheet(editing, onDismiss = { creating = false; editing = null }, onSave = onSave)
-    }
-    deleteTarget?.let { target ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text(stringResource(R.string.lib_delete_material_title)) },
-            text = { Text(stringResource(R.string.lib_delete_material_body, target.name)) },
-            confirmButton = { Button(onClick = { onDelete(target); deleteTarget = null }) { Text(stringResource(R.string.material_delete_confirm)) } },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.common_cancel)) } },
-        )
     }
 }
 
 @Composable
 private fun ToolsList(
-    materials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
     onSave: suspend (CuttingToolEntity, List<ToolRecommendationEntity>) -> Result<Long>,
     onDelete: (CuttingToolEntity) -> Unit,
@@ -220,6 +195,7 @@ private fun ToolsList(
             val count = item.recommendations.size
             LibraryCard(
                 glyph = toolGlyph(tool.toolKind),
+                isoCodes = item.recommendations.map { it.isoGroup }.sorted(),
                 title = tool.name,
                 tags = buildList {
                     add(toolKindLabel(tool.toolKind) to true)
@@ -240,7 +216,7 @@ private fun ToolsList(
     }
 
     if (creating || editing != null) {
-        ToolFormSheet(editing, materials, onDismiss = { creating = false; editing = null }, onSave = onSave)
+        ToolFormSheet(editing, onDismiss = { creating = false; editing = null }, onSave = onSave)
     }
     deleteTarget?.let { target ->
         AlertDialog(
@@ -271,6 +247,7 @@ private fun LibraryCard(
     detail: String,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    isoCodes: List<String> = emptyList(),
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -289,6 +266,9 @@ private fun LibraryCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     tags.forEach { (label, emphasized) -> Tag(label, emphasized = emphasized) }
                 }
+                if (isoCodes.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { isoCodes.forEach { code -> IsoGroup.entries.firstOrNull { it.name == code }?.let { IsoBadge(it, size = 22.dp) } } }
+                }
                 if (detail.isNotBlank()) {
                     Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -299,117 +279,41 @@ private fun LibraryCard(
     }
 }
 
-@Composable
-private fun MaterialFormSheet(
-    existing: MachiningMaterialEntity?,
-    onDismiss: () -> Unit,
-    onSave: suspend (MachiningMaterialEntity) -> Result<Unit>,
-) {
-    var name by remember { mutableStateOf(existing?.name ?: "") }
-    var category by remember { mutableStateOf(existing?.materialCategory ?: MaterialCategory.CARBON_STEEL) }
-    var condition by remember { mutableStateOf(existing?.condition ?: "") }
-    var hardness by remember { mutableStateOf(existing?.hardness ?: "") }
-    var notes by remember { mutableStateOf(existing?.notes ?: "") }
-    var nameError by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val categoryLabels = MaterialCategory.entries.associateWith { categoryLabel(it) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(13.dp),
-        ) {
-            Text(
-                stringResource(if (existing == null) R.string.lib_new_material else R.string.lib_edit_material),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            OutlinedTextField(
-                name, { name = it; nameError = false }, Modifier.fillMaxWidth(), singleLine = true, isError = nameError,
-                label = { Text(stringResource(R.string.form_name)) },
-                placeholder = { Text(stringResource(R.string.lib_material_name_hint)) },
-                shape = RoundedCornerShape(13.dp),
-            )
-            DropdownField(
-                label = stringResource(R.string.lib_material_category),
-                selected = categoryLabels.getValue(category),
-                options = MaterialCategory.entries.map { it.name to categoryLabels.getValue(it) },
-                onSelect = { category = MaterialCategory.valueOf(it) },
-            )
-            Text(
-                stringResource(R.string.lib_material_category_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    condition, { condition = it }, Modifier.weight(1f), singleLine = true,
-                    label = { Text(stringResource(R.string.lib_material_condition)) }, placeholder = { Text("T6, recocido…") },
-                    shape = RoundedCornerShape(13.dp),
-                )
-                OutlinedTextField(
-                    hardness, { hardness = it }, Modifier.weight(1f), singleLine = true,
-                    label = { Text(stringResource(R.string.lib_material_hardness)) }, placeholder = { Text("≈ 95 HB") },
-                    shape = RoundedCornerShape(13.dp),
-                )
-            }
-            OutlinedTextField(
-                notes, { notes = it }, Modifier.fillMaxWidth(), minLines = 2,
-                label = { Text(stringResource(R.string.machines_form_notes)) },
-                shape = RoundedCornerShape(13.dp),
-            )
-            Button(
-                onClick = {
-                    if (name.isBlank()) { nameError = true; return@Button }
-                    scope.launch {
-                        onSave(
-                            MachiningMaterialEntity(
-                                id = existing?.id ?: "",
-                                name = name.trim(),
-                                category = category.name,
-                                condition = condition.trim(),
-                                hardness = hardness.trim(),
-                                notes = notes.trim(),
-                                isBuiltIn = existing?.isBuiltIn ?: false,
-                            ),
-                        ).onSuccess { onDismiss() }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(15.dp),
-            ) { Text(stringResource(R.string.form_save_changes), style = MaterialTheme.typography.labelLarge) }
-            Spacer(Modifier.height(20.dp))
-        }
-    }
-}
-
-/** Borrador editable de los valores del fabricante para un material (todo en texto hasta guardar). */
+/** Borrador editable de los valores del fabricante para un grupo ISO (todo en texto hasta guardar). */
 private data class RecDraft(
-    val materialId: String,
+    val group: IsoGroup,
     val vcMin: String = "", val vcStart: String = "", val vcMax: String = "",
     val feedMin: String = "", val feedStart: String = "", val feedMax: String = "",
     val depth: String = "",
+    val vcUnit: MachUnit = MachUnit.M_MIN,
+    val feedUnit: MachUnit = MachUnit.MM,
+    val depthUnit: MachUnit = MachUnit.MM,
 )
 
+/** Cambia la unidad de un grupo de campos convirtiendo lo ya escrito. */
+private fun convertText(text: String, from: MachUnit, to: MachUnit): String =
+    text.toDecimalOrNull()?.let { Fmt.editable(MachUnit.convert(it, from, to)) } ?: text
+
 private fun RecDraft.toEntity(toolId: Long): ToolRecommendationEntity? {
-    val vMin = vcMin.toDecimalOrNull()?.takeIf { it > 0 } ?: return null
-    val vMax = vcMax.toDecimalOrNull()?.takeIf { it >= vMin } ?: return null
-    val fMin = feedMin.toDecimalOrNull()?.takeIf { it > 0 } ?: return null
-    val fMax = feedMax.toDecimalOrNull()?.takeIf { it >= fMin } ?: return null
-    val vStart = vcStart.toDecimalOrNull()?.takeIf { it in vMin..vMax } ?: if (vcStart.isBlank()) (vMin + vMax) / 2 else return null
-    val fStart = feedStart.toDecimalOrNull()?.takeIf { it in fMin..fMax } ?: if (feedStart.isBlank()) (fMin + fMax) / 2 else return null
+    fun vc(text: String) = text.toDecimalOrNull()?.let { MachUnit.toBase(it, vcUnit) }
+    fun feed(text: String) = text.toDecimalOrNull()?.let { MachUnit.toBase(it, feedUnit) }
+    val vMin = vc(vcMin)?.takeIf { it > 0 } ?: return null
+    val vMax = vc(vcMax)?.takeIf { it >= vMin } ?: return null
+    val fMin = feed(feedMin)?.takeIf { it > 0 } ?: return null
+    val fMax = feed(feedMax)?.takeIf { it >= fMin } ?: return null
+    val vStart = vc(vcStart)?.takeIf { it in vMin..vMax } ?: if (vcStart.isBlank()) (vMin + vMax) / 2 else return null
+    val fStart = feed(feedStart)?.takeIf { it in fMin..fMax } ?: if (feedStart.isBlank()) (fMin + fMax) / 2 else return null
     return ToolRecommendationEntity(
-        toolId = toolId, materialId = materialId,
+        toolId = toolId, isoGroup = group.name,
         vcMin = vMin, vcStart = vStart, vcMax = vMax,
         feedMin = fMin, feedStart = fStart, feedMax = fMax,
-        depthMaxMm = depth.toDecimalOrNull()?.takeIf { it > 0 },
+        depthMaxMm = depth.toDecimalOrNull()?.takeIf { it > 0 }?.let { MachUnit.toBase(it, depthUnit) },
     )
 }
 
 @Composable
 private fun ToolFormSheet(
     existing: ToolWithRecommendations?,
-    materials: List<MachiningMaterialEntity>,
     onDismiss: () -> Unit,
     onSave: suspend (CuttingToolEntity, List<ToolRecommendationEntity>) -> Result<Long>,
 ) {
@@ -426,9 +330,10 @@ private fun ToolFormSheet(
     val recs = remember {
         mutableStateListOf<RecDraft>().apply {
             existing?.recommendations?.forEach {
+                val group = IsoGroup.entries.firstOrNull { g -> g.name == it.isoGroup } ?: return@forEach
                 add(
                     RecDraft(
-                        it.materialId, text(it.vcMin), text(it.vcStart), text(it.vcMax),
+                        group, text(it.vcMin), text(it.vcStart), text(it.vcMax),
                         text(it.feedMin), text(it.feedStart), text(it.feedMax), it.depthMaxMm?.let(::text) ?: "",
                     ),
                 )
@@ -443,7 +348,7 @@ private fun ToolFormSheet(
     val typeLathe = stringResource(R.string.machine_type_lathe)
     val typeMill = stringResource(R.string.machine_type_mill)
     val effectiveType = if (kind == ToolKind.CARBIDE_ENDMILL) MachineType.MILL.name else machineType
-    val feedUnit = if (effectiveType == MachineType.LATHE.name) "mm/rev" else stringResource(R.string.unit_mm_per_tooth)
+    val feedSuffix = if (effectiveType == MachineType.LATHE.name) "/rev" else stringResource(R.string.unit_per_tooth)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -495,8 +400,7 @@ private fun ToolFormSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 recs.forEachIndexed { index, rec ->
-                    val taken = recs.map { it.materialId }.toSet() - rec.materialId
-                    val available = materials.filter { it.id !in taken }
+                    val taken = recs.map { it.group }.toSet() - rec.group
                     Card(
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -505,37 +409,57 @@ private fun ToolFormSheet(
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.Bottom) {
-                                DropdownField(
-                                    label = stringResource(R.string.lib_rec_material),
-                                    selected = materials.firstOrNull { it.id == rec.materialId }?.name ?: "—",
-                                    options = available.map { it.id to it.name },
-                                    onSelect = { recs[index] = rec.copy(materialId = it) },
+                                IsoGroupPicker(
+                                    selected = rec.group,
+                                    taken = taken,
+                                    onSelect = { recs[index] = rec.copy(group = it) },
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(onClick = { recs.removeAt(index) }) { Text("✕", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
-                            Text("Vc (m/min)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.lib_rec_speed), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                UnitPicker(rec.vcUnit) { picked ->
+                                    recs[index] = rec.copy(
+                                        vcMin = convertText(rec.vcMin, rec.vcUnit, picked), vcStart = convertText(rec.vcStart, rec.vcUnit, picked),
+                                        vcMax = convertText(rec.vcMax, rec.vcUnit, picked), vcUnit = picked,
+                                    )
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 LabeledNumberField(stringResource(R.string.lib_rec_min), rec.vcMin, { recs[index] = rec.copy(vcMin = it) }, Modifier.weight(1f))
                                 LabeledNumberField(stringResource(R.string.lib_rec_start), rec.vcStart, { recs[index] = rec.copy(vcStart = it) }, Modifier.weight(1f))
                                 LabeledNumberField(stringResource(R.string.lib_rec_max), rec.vcMax, { recs[index] = rec.copy(vcMax = it) }, Modifier.weight(1f))
                             }
-                            Text(stringResource(R.string.lib_rec_feed, feedUnit), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.lib_rec_feed), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                UnitPicker(rec.feedUnit, feedSuffix) { picked ->
+                                    recs[index] = rec.copy(
+                                        feedMin = convertText(rec.feedMin, rec.feedUnit, picked), feedStart = convertText(rec.feedStart, rec.feedUnit, picked),
+                                        feedMax = convertText(rec.feedMax, rec.feedUnit, picked), feedUnit = picked,
+                                    )
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 LabeledNumberField(stringResource(R.string.lib_rec_min), rec.feedMin, { recs[index] = rec.copy(feedMin = it) }, Modifier.weight(1f))
                                 LabeledNumberField(stringResource(R.string.lib_rec_start), rec.feedStart, { recs[index] = rec.copy(feedStart = it) }, Modifier.weight(1f))
                                 LabeledNumberField(stringResource(R.string.lib_rec_max), rec.feedMax, { recs[index] = rec.copy(feedMax = it) }, Modifier.weight(1f))
                             }
-                            LabeledNumberField(
-                                stringResource(R.string.lib_rec_depth), rec.depth, { recs[index] = rec.copy(depth = it) },
-                                Modifier.fillMaxWidth(), suffix = "mm",
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                LabeledNumberField(
+                                    stringResource(R.string.lib_rec_depth), rec.depth, { recs[index] = rec.copy(depth = it) },
+                                    Modifier.weight(1f),
+                                )
+                                UnitPicker(rec.depthUnit) { picked ->
+                                    recs[index] = rec.copy(depth = convertText(rec.depth, rec.depthUnit, picked), depthUnit = picked)
+                                }
+                            }
                         }
                     }
                 }
-                val unused = materials.filter { m -> recs.none { it.materialId == m.id } }
+                val unused = IsoGroup.entries.filter { g -> recs.none { it.group == g } }
                 OutlinedButton(
-                    onClick = { unused.firstOrNull()?.let { recs.add(RecDraft(it.id)) } },
+                    onClick = { unused.firstOrNull()?.let { recs.add(RecDraft(it)) } },
                     enabled = unused.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
