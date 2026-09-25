@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Flat fallback for API 24-25 (no adaptive-icon support): solid orange disc + the isometric I-beam. -->
+<!-- Flat fallback for API 24-25 (no adaptive-icon support): solid orange disc + the isometric I-beam,
+     extruded edge by edge (see ic_launcher_foreground.xml) instead of a bounding box. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -9,11 +10,23 @@
         android:pathData="M54,0 C83.82,0 108,24.18 108,54 C108,83.82 83.82,108 54,108 C24.18,108 0,83.82 0,54 C0,24.18 24.18,0 54,0 Z"
         android:fillColor="@color/ic_launcher_background" />
     <path
-        android:pathData="M32,32 L60,32 L74,24 L46,24 Z"
-        android:fillColor="#8CF7F1EA" />
+        android:pathData="M60,32 L60,39 L74,31 L74,24 Z"
+        android:fillColor="@color/ic_launcher_foreground_side" />
     <path
-        android:pathData="M60,32 L60,78 L74,70 L74,24 Z"
-        android:fillColor="#4DF7F1EA" />
+        android:pathData="M50,39 L50,71 L64,63 L64,31 Z"
+        android:fillColor="@color/ic_launcher_foreground_side" />
+    <path
+        android:pathData="M60,71 L60,78 L74,70 L74,63 Z"
+        android:fillColor="@color/ic_launcher_foreground_side" />
+    <path
+        android:pathData="M32,32 L60,32 L74,24 L46,24 Z"
+        android:fillColor="@color/ic_launcher_foreground_top" />
+    <path
+        android:pathData="M32,71 L42,71 L56,63 L46,63 Z"
+        android:fillColor="@color/ic_launcher_foreground_top" />
+    <path
+        android:pathData="M50,71 L60,71 L74,63 L64,63 Z"
+        android:fillColor="@color/ic_launcher_foreground_top" />
     <path
         android:pathData="M32,32 L60,32 L60,39 L50,39 L50,71 L60,71 L60,78 L32,78 L32,71 L42,71 L42,39 L32,39 Z"
         android:fillColor="@color/ic_launcher_foreground_glyph" />
