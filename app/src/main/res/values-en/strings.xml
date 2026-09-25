@@ -346,4 +346,17 @@
     <string name="lib_delete_material_body">“%1$s” will be deleted.</string>
     <string name="lib_material_group">ISO category</string>
     <string name="lib_material_group_hint">The category decides which manufacturer values of your inserts apply to this material; if the insert has no data for it, the conservative generic values are used. Hardness (HB or HRC) is informational: use it to tell apart materials of the same category.</string>
+    <string name="form_error_title">Could not save. Fix the following:</string>
+    <string name="form_error_name">The material needs a name.</string>
+    <string name="form_error_name_hint">Enter a name or use the suggested one.</string>
+    <string name="form_use_suggested">Use the suggested name: %1$s</string>
+    <string name="form_error_save_failed">The material could not be saved.</string>
+    <string name="dim_error_missing">Enter a value.</string>
+    <string name="dim_error_positive">Must be greater than zero.</string>
+    <string name="mach_fill_in_title">Fill in the values to see the result</string>
+    <string name="mach_fill_in_missing">Still to enter: %1$s.</string>
+    <string name="form_discard_title">Discard what you typed?</string>
+    <string name="form_discard_body">You have not saved yet. If you close now, what you typed will be lost.</string>
+    <string name="form_discard_confirm">Discard</string>
+    <string name="form_discard_keep">Keep editing</string>
 </resources>

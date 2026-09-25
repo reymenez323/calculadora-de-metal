@@ -24,12 +24,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.ui.common.FormScreenDialog
 import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
 import com.reymildo.calculadoradelmetal.domain.machining.MachineKind
 import com.reymildo.calculadoradelmetal.domain.machining.MachineType
@@ -260,19 +259,21 @@ private fun MachineFormSheet(
     val rpmValue = maxRpm.toDecimalOrNull()?.takeIf { it > 0 }
     val feedValue = maxFeed.base()
     val lathe = type == MachineType.LATHE
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val typeLabels = MachineType.entries.associateWith { stringResource(if (it == MachineType.LATHE) R.string.machine_type_lathe else R.string.machine_type_mill) }
     val saveFailed = stringResource(R.string.machines_save_failed)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+
+    fun signature() = (
+        listOf(type.name, kind.name, name, brand, model, maxRpm, minRpm, steps, threadRpm, partRpm, taper, axes, toolCapacity, notes) +
+            listOf(maxFeed, power, swing, centers, chuck, bore, tx, ty, tz).map { it.text + it.unit.name }
+        ).joinToString("|")
+    val initialSignature = remember { signature() }
+
+    FormScreenDialog(title = stringResource(if (existing == null) R.string.machines_new else R.string.machines_edit), dirty = signature() != initialSignature, onClose = onDismiss) {
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Text(
-                stringResource(if (existing == null) R.string.machines_new else R.string.machines_edit),
-                style = MaterialTheme.typography.titleLarge,
-            )
 
             SectionCard(title = stringResource(R.string.machines_form_type)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

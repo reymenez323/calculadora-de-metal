@@ -5,7 +5,7 @@ import com.reymildo.calculadoradelmetal.domain.model.LengthUnit
 data class AppSettings(
     val language: AppLanguage = AppLanguage.ES,
     val defaultLengthUnit: LengthUnit = LengthUnit.IN,
-    val decimalPrecision: Int = 2,
+    val decimalPrecision: Int = 3,
     val currencySymbol: String = "$",
     val tutorialDismissed: Boolean = false,
 )

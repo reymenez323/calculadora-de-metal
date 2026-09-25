@@ -11,6 +11,7 @@ class MachiningDraftStateTest {
     fun `unit change preserves physical magnitude and survives recreation`() {
         val handle = SavedStateHandle()
         val first = MachiningViewModel(handle)
+        first.updateMilling { it.copy(fields = it.fields + ("diameter" to "10")) }
         first.switchUnits(turning = false, target = MachiningUnitSystem.IMPERIAL)
         assertEquals("0.393701", first.milling.value.fields.getValue("diameter"))
 

@@ -101,7 +101,7 @@ data class MachiningDraft(
     val operation: String,
     val fields: Map<String, String> = emptyMap(),
     val unitSystem: MachiningUnitSystem = MachiningUnitSystem.METRIC,
-    val materialId: String = IsoGroup.P.name,
+    val materialId: String = "a36",
     val toolId: Long? = null,
     val machineProfileId: Long? = null,
     val recommendationApplied: Boolean = false,

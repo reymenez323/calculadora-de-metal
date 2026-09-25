@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,13 +28,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -49,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.ui.common.FormScreenDialog
 import com.reymildo.calculadoradelmetal.data.local.DimensionsCodec
 import com.reymildo.calculadoradelmetal.data.local.entity.MaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.SupplierEntity
@@ -67,6 +67,7 @@ import com.reymildo.calculadoradelmetal.ui.common.RoundTubeInnerDiameterRow
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.ShapeGlyph
 import com.reymildo.calculadoradelmetal.ui.common.ShapeIsoDiagram
+import com.reymildo.calculadoradelmetal.ui.common.dimensionNameRes
 import com.reymildo.calculadoradelmetal.ui.common.shapeNameRes
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
@@ -399,7 +400,10 @@ private fun MaterialFormSheet(
     var nameError by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    // Tras un intento fallido de guardar, los errores se marcan en su campo y se van quitando al corregirlos.
+    var showErrors by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     remember(shape) {
         shape.requiredDimensions.forEach { type ->
@@ -424,25 +428,47 @@ private fun MaterialFormSheet(
         null
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val noTechnicalMaterialLabel = stringResource(R.string.form_technical_material_none)
     val shapeLabels = Shape.ALL.associateWith { candidate ->
         stringResource(shapeNameRes(candidate))
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    // Qué impide guardar, campo por campo, con el nombre visible de cada medida.
+    val missingMessage = stringResource(R.string.dim_error_missing)
+    val positiveMessage = stringResource(R.string.dim_error_positive)
+    val dimensionLabels = shape.requiredDimensions.associateWith { stringResource(dimensionNameRes(it)) }
+    val dimensionErrors = shape.requiredDimensions.mapNotNull { type ->
+        val text = values[type]?.trim().orEmpty()
+        val number = text.toDecimalOrNull()
+        when {
+            text.isEmpty() -> type to missingMessage
+            number == null || !number.isFinite() || number <= 0.0 -> type to positiveMessage
+            else -> null
+        }
+    }.toMap()
+    // Relaciones entre medidas (p. ej. grosor de pared mayor que el radio): solo si cada medida es válida por sí sola.
+    val relationErrors = if (dimensionErrors.isEmpty()) shape.additionalValidation(dimensions) else emptyList()
+    // Un nombre que describe la geometría escrita: el usuario puede aceptarlo en vez de inventar uno.
+    val suggestedName = shapeLabels.getValue(shape) + Fmt.dimensions(shape.requiredDimensions, dimensions).let { if (it.isBlank()) "" else " · $it" }
+    val nameBlank = name.isBlank()
+
+
+    fun signature() = (
+        listOf(name, shape.id, priceText, technicalMaterialId ?: "") +
+            shape.requiredDimensions.map { values[it] ?: "" } +
+            shape.requiredDimensions.map { (units[it] ?: settings.defaultLengthUnit).name }
+        ).joinToString("|")
+    val initialSignature = remember { signature() }
+
+    FormScreenDialog(title = stringResource(if (existing == null) R.string.form_new else R.string.form_edit), dirty = signature() != initialSignature, onClose = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .imePadding()
                 .padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Text(
-                text = stringResource(if (existing == null) R.string.form_new else R.string.form_edit),
-                style = MaterialTheme.typography.titleLarge,
-            )
 
             OutlinedTextField(
                 value = name,
@@ -452,7 +478,8 @@ private fun MaterialFormSheet(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = nameError,
+                isError = nameError && nameBlank,
+                supportingText = if (nameError && nameBlank) ({ Text(stringResource(R.string.form_error_name_hint)) }) else null,
                 label = { Text(stringResource(R.string.form_name)) },
                 placeholder = { Text(stringResource(R.string.form_name_hint)) },
                 shape = RoundedCornerShape(13.dp),
@@ -462,6 +489,12 @@ private fun MaterialFormSheet(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
             )
+            if (nameBlank) {
+                AssistChip(
+                    onClick = { name = suggestedName; nameError = false },
+                    label = { Text(stringResource(R.string.form_use_suggested, suggestedName), maxLines = 1) },
+                )
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.form_technical_material).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -544,6 +577,7 @@ private fun MaterialFormSheet(
                         onValueChange = { values[type] = it },
                         unit = units[type] ?: settings.defaultLengthUnit,
                         onUnitChange = { units[type] = it },
+                        error = if (showErrors) dimensionErrors[type] else null,
                     )
                 }
                 if (shape == Shape.RoundTube) {
@@ -581,30 +615,62 @@ private fun MaterialFormSheet(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        text = rate?.takeIf { it > 0.0 }?.let { Fmt.money(it, settings, 3) } ?: "—",
+                        text = rate?.takeIf { it > 0.0 }?.let { Fmt.money(it, settings, 2) } ?: "—",
                         style = MaterialTheme.typography.titleSmall.copy(fontFamily = NumberFamily),
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
 
+            val problems = buildList {
+                if (nameBlank) add(stringResource(R.string.form_error_name))
+                dimensionErrors.forEach { (type, message) -> add(dimensionLabels.getValue(type) + ": " + message) }
+                addAll(relationErrors)
+                saveError?.let { add(it) }
+            }
+            if ((showErrors || saveError != null) && problems.isNotEmpty()) {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            stringResource(R.string.form_error_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        problems.forEach { problem ->
+                            Text("• $problem", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                        if (nameBlank) {
+                            TextButton(onClick = { name = suggestedName; nameError = false }) {
+                                Text(stringResource(R.string.form_use_suggested, suggestedName))
+                            }
+                        }
+                    }
+                }
+            }
+
+            val saveFailedMessage = stringResource(R.string.form_error_save_failed)
             Button(
                 onClick = {
-                    if (name.isBlank()) {
-                        nameError = true
-                        return@Button
-                    }
-                    val validation = com.reymildo.calculadoradelmetal.domain.calculation.VolumeCalculator.validate(shape, dimensions)
-                    if (validation.isNotEmpty()) {
-                        saveError = validation.first()
+                    showErrors = true
+                    saveError = null
+                    if (nameBlank) nameError = true
+                    if (nameBlank || dimensionErrors.isNotEmpty() || relationErrors.isNotEmpty()) {
+                        // El aviso está encima del botón: se baja hasta él para que se vea.
+                        scope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
                         return@Button
                     }
                     saving = true
-                    saveError = null
                     scope.launch {
                         onSave(name.trim(), shape, dimensions, price, technicalMaterialId)
                             .onSuccess { onSaved() }
-                            .onFailure { saveError = it.message ?: "No se pudo guardar el material." }
+                            .onFailure {
+                                saveError = it.message ?: saveFailedMessage
+                                scrollState.animateScrollTo(scrollState.maxValue)
+                            }
                         saving = false
                     }
                 },
@@ -616,10 +682,6 @@ private fun MaterialFormSheet(
                     text = stringResource(if (existing == null) R.string.form_save else R.string.form_save_changes),
                     style = MaterialTheme.typography.labelLarge,
                 )
-            }
-
-            saveError?.let { error ->
-                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(20.dp))

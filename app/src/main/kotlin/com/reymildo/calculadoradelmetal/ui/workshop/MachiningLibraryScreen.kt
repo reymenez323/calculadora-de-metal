@@ -24,12 +24,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -43,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.ui.common.FormScreenDialog
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
@@ -196,17 +195,16 @@ private fun MaterialFormSheet(
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var nameError by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+
+    fun signature() = listOf(name, group.name, condition, hardness, notes).joinToString("|")
+    val initialSignature = remember { signature() }
+
+    FormScreenDialog(title = stringResource(if (existing == null) R.string.lib_new_material else R.string.lib_edit_material), dirty = signature() != initialSignature, onClose = onDismiss) {
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Text(
-                stringResource(if (existing == null) R.string.lib_new_material else R.string.lib_edit_material),
-                style = MaterialTheme.typography.titleLarge,
-            )
             OutlinedTextField(
                 name, { name = it; nameError = false }, Modifier.fillMaxWidth(), singleLine = true, isError = nameError,
                 label = { Text(stringResource(R.string.form_name)) },
@@ -442,19 +440,21 @@ private fun ToolFormSheet(
     var nameError by remember { mutableStateOf(false) }
     var recsError by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val kindLabels = ToolKind.entries.associateWith { toolKindLabel(it) }
     val typeLathe = stringResource(R.string.machine_type_lathe)
     val typeMill = stringResource(R.string.machine_type_mill)
     val effectiveType = if (kind == ToolKind.CARBIDE_ENDMILL) MachineType.MILL.name else machineType
     val feedSuffix = if (effectiveType == MachineType.LATHE.name) "/rev" else stringResource(R.string.unit_per_tooth)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+
+    fun signature() = listOf(name, kind.name, machineType, brand, code, coating, notes, recs.joinToString(";") { it.toString() }).joinToString("|")
+    val initialSignature = remember { signature() }
+
+    FormScreenDialog(title = stringResource(if (existing == null) R.string.lib_new_tool else R.string.lib_edit_tool), dirty = signature() != initialSignature, onClose = onDismiss) {
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Text(stringResource(if (existing == null) R.string.lib_new_tool else R.string.lib_edit_tool), style = MaterialTheme.typography.titleLarge)
 
             SectionCard(title = stringResource(R.string.lib_tool_kind)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

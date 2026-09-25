@@ -40,7 +40,7 @@ class MachiningLinksTest {
     @Test
     fun `editing the feed rate solves the feed per tooth, and teeth change the feed rate`() {
         var d = MachiningLinks.apply(milling(), "vf", "500")
-        assertEquals(500.0 / (4 * d.num("rpm")), d.num("fz"), 1e-5)
+        assertEquals(500.0 / (4 * d.num("rpm")), d.num("fz"), 1e-4)
         d = MachiningLinks.apply(d, "teeth", "2")
         assertEquals(d.num("fz") * 2 * d.num("rpm"), d.num("vf"), 0.01)
     }
@@ -54,6 +54,25 @@ class MachiningLinksTest {
         assertEquals(before.num("vf") / 2, d.num("vf"), 0.1)
         assertEquals(5.0, d.num("ae"), 1e-9)
         assertEquals(25.0, d.num("aePct"), 1e-9)
+    }
+
+    @Test
+    fun `derived values follow the chosen decimals but keep enough precision for the calculation`() {
+        val coarse = MachiningLinks.recompute(
+            MachiningDraft(
+                operation = MillingOperation.FACE.name,
+                fields = mapOf("diameter" to "10", "vc" to "100", "teeth" to "4", "fz" to "0.05", "ae" to "5"),
+            ),
+            decimals = 0,
+        )
+        // las RPM llevan siempre 2 decimales, aunque la precisión pedida sea 0
+        assertEquals("3183.1", coarse.fields.getValue("rpm"))
+        assertEquals("50", coarse.fields.getValue("aePct"))
+        val fromFeedRate = MachiningLinks.apply(coarse, "vf", "500", decimals = 0)
+        // el avance por diente se conserva con 4 decimales aunque la precisión pedida sea 0
+        assertEquals(0.0393, fromFeedRate.num("fz"), 1e-9)
+        val fine = MachiningLinks.recompute(coarse, decimals = 3)
+        assertEquals("3183.1", fine.fields.getValue("rpm"))
     }
 
     @Test

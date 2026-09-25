@@ -269,6 +269,7 @@ private fun AppScaffold(
                     machines = machineProfiles,
                     materials = machiningMaterials,
                     tools = tools,
+                    decimals = settings.decimalPrecision,
                     modifier = Modifier.padding(padding),
                     onOpenMachines = {
                         workshopSection = WorkshopSection.MACHINES

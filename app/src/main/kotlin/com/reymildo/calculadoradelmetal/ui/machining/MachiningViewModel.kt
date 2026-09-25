@@ -75,23 +75,10 @@ class MachiningViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         )
         private val MILLING_LENGTH_KEYS = setOf("diameter", "fz", "ap", "ae", "totalDepth", "path", "finish")
 
-        private fun defaultTurning() = MachiningDraft(
-            operation = TurningOperation.TURNING.name,
-            fields = mapOf(
-                "initialDiameter" to "50", "finalDiameter" to "40", "cutLength" to "100",
-                "vc" to "180", "feed" to "0.2", "depth" to "2", "finish" to "0.5",
-                "grooveWidth" to "5", "toolWidth" to "3", "pitch" to "1.5",
-                "starts" to "1", "threadPasses" to "8", "css" to "0",
-            ),
-        )
+        // Los valores arrancan vacíos: el usuario los escribe (o aplica el valor inicial de la herramienta).
+        private fun defaultTurning() = MachiningDraft(operation = TurningOperation.TURNING.name)
 
-        private fun defaultMilling() = MachiningDraft(
-            operation = MillingOperation.FACE.name,
-            fields = mapOf(
-                "diameter" to "10", "vc" to "100", "teeth" to "4", "fz" to "0.05",
-                "ap" to "2", "ae" to "5", "totalDepth" to "6", "path" to "100", "finish" to "0",
-            ),
-        )
+        private fun defaultMilling() = MachiningDraft(operation = MillingOperation.FACE.name)
 
         private fun format(value: Double) = java.math.BigDecimal.valueOf(value)
             .setScale(6, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()

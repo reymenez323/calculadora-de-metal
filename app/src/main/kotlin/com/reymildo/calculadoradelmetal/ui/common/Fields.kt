@@ -88,6 +88,7 @@ fun DimensionRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     helper: String? = null,
+    error: String? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -100,7 +101,13 @@ fun DimensionRow(
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (helper != null) {
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (helper != null) {
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
@@ -114,6 +121,7 @@ fun DimensionRow(
             unit = unit,
             onUnitChange = onUnitChange,
             enabled = enabled,
+            isError = error != null,
             modifier = Modifier.weight(1.15f),
         )
     }
@@ -127,6 +135,7 @@ fun NumberFieldWithUnit(
     onUnitChange: (LengthUnit) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isError: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -136,6 +145,7 @@ fun NumberFieldWithUnit(
         },
         modifier = modifier,
         enabled = enabled,
+        isError = isError,
         placeholder = { Text("0", style = MaterialTheme.typography.bodyMedium) },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(

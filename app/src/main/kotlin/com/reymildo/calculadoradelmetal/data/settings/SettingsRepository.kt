@@ -28,7 +28,7 @@ class SettingsRepository(private val context: Context) {
                 ?: AppLanguage.ES,
             defaultLengthUnit = prefs[Keys.DEFAULT_LENGTH_UNIT]?.let { runCatching { LengthUnit.valueOf(it) }.getOrNull() }
                 ?: LengthUnit.IN,
-            decimalPrecision = prefs[Keys.DECIMAL_PRECISION] ?: 2,
+            decimalPrecision = prefs[Keys.DECIMAL_PRECISION] ?: 3,
             currencySymbol = prefs[Keys.CURRENCY_SYMBOL] ?: "$",
             tutorialDismissed = prefs[Keys.TUTORIAL_DISMISSED] ?: false,
         )

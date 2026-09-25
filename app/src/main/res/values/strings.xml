@@ -346,4 +346,17 @@
     <string name="lib_delete_material_body">Se eliminará “%1$s”.</string>
     <string name="lib_material_group">Categoría ISO</string>
     <string name="lib_material_group_hint">La categoría decide qué valores del fabricante de tus insertos se aplican a este material; si el inserto no tiene datos para ella se usan los genéricos conservadores. La dureza (HB o HRC) es informativa: úsala para distinguir materiales de una misma categoría.</string>
+    <string name="form_error_title">No se pudo guardar. Corrige lo siguiente:</string>
+    <string name="form_error_name">Falta el nombre del material.</string>
+    <string name="form_error_name_hint">Escribe un nombre o usa el sugerido.</string>
+    <string name="form_use_suggested">Usar el nombre sugerido: %1$s</string>
+    <string name="form_error_save_failed">No se pudo guardar el material.</string>
+    <string name="dim_error_missing">Escribe un valor.</string>
+    <string name="dim_error_positive">Debe ser mayor que cero.</string>
+    <string name="mach_fill_in_title">Completa los valores para ver el resultado</string>
+    <string name="mach_fill_in_missing">Falta por escribir: %1$s.</string>
+    <string name="form_discard_title">¿Descartar lo escrito?</string>
+    <string name="form_discard_body">Aún no has guardado. Si cierras ahora, se perderá lo que escribiste.</string>
+    <string name="form_discard_confirm">Descartar</string>
+    <string name="form_discard_keep">Seguir editando</string>
 </resources>

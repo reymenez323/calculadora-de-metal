@@ -26,6 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -80,8 +83,33 @@ import com.reymildo.calculadoradelmetal.ui.common.millingGlyph
 import com.reymildo.calculadoradelmetal.ui.common.toDecimalOrNull
 import com.reymildo.calculadoradelmetal.ui.common.turningGlyph
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
+import kotlin.math.max
 
 /** Recomendación aplicable: valores del fabricante de la herramienta o, si no hay, los genéricos conservadores. */
+/** Decimales elegidos en Configuración; los usan las filas de valores y los avisos sin pasarlos por cada llamada. */
+private val LocalDecimals = compositionLocalOf { MachiningLinks.DEFAULT_DECIMALS }
+
+/** Escribe el valor inicial recomendado de velocidad de corte y avance, en la unidad de cada campo. */
+private fun applyRecommendation(
+    d: MachiningDraft,
+    recommendation: CuttingRecommendation,
+    turning: Boolean,
+    decimals: Int,
+): MachiningDraft {
+    val feedKey = if (turning) "feed" else "fz"
+    val vc = MachUnit.convert(recommendation.cuttingSpeedStartMMin, MachUnit.M_MIN, d.unitOf("vc", Quantity.CUTTING_SPEED))
+    val feed = MachUnit.convert(recommendation.feedStartMm, MachUnit.MM, d.unitOf(feedKey, Quantity.LENGTH))
+    return MachiningLinks.recompute(
+        d.copy(
+            fields = d.fields +
+                ("vc" to MachiningLinks.formatValue(vc, max(decimals, 2))) +
+                (feedKey to MachiningLinks.formatValue(feed, max(decimals, 4))),
+            recommendationApplied = true,
+        ),
+        decimals,
+    )
+}
+
 private fun resolveRecommendation(
     tool: ToolWithRecommendations?,
     group: IsoGroup?,
@@ -104,6 +132,7 @@ fun MachiningScreen(
     materials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
     onOpenMachines: () -> Unit,
+    decimals: Int,
     modifier: Modifier = Modifier,
     viewModel: MachiningViewModel = viewModel(),
 ) {
@@ -123,7 +152,7 @@ fun MachiningScreen(
     val material = materials.firstOrNull { it.id == draft.materialId } ?: materials.firstOrNull()
 
     // Coherencia de los valores: cada problema se marca en su campo y se resume abajo.
-    val issues = MachiningValidator.validate(
+    val allIssues = MachiningValidator.validate(
         turning = turning,
         operation = draft.operation,
         value = { key ->
@@ -135,11 +164,31 @@ fun MachiningScreen(
         machine = machine?.toLimits(),
         recommendation = resolveRecommendation(tool, material?.group, turning),
     )
+    // Un campo aún vacío no es un error: se avisa solo de lo que el usuario ya escribió y es incoherente.
+    val pending = allIssues.filter {
+        it.severity == IssueSeverity.ERROR &&
+            it.code in setOf(IssueCode.REQUIRED, IssueCode.REQUIRED_ZERO_OK, IssueCode.MIN_ONE) &&
+            draft.fields[it.key].isNullOrBlank()
+    }
+    val issues = allIssues - pending.toSet()
     val issueMap = issues.groupBy { it.key }.mapValues { (_, list) -> list.minBy { it.severity.ordinal } }
     val errors = issues.filter { it.severity == IssueSeverity.ERROR }
 
+    // Velocidad de corte y avance se rellenan solos con lo recomendado para la herramienta y el
+    // material, mientras el usuario no haya escrito los suyos.
+    val autoRecommendation = resolveRecommendation(tool, material?.group, turning)
+    LaunchedEffect(tool?.tool?.id, material?.id, turning) {
+        val recommended = autoRecommendation ?: return@LaunchedEffect
+        update { d ->
+            val feedKey = if (turning) "feed" else "fz"
+            val untouched = d.fields["vc"].isNullOrBlank() && d.fields[feedKey].isNullOrBlank()
+            if (d.recommendationApplied || untouched) applyRecommendation(d, recommended, turning, decimals) else d
+        }
+    }
+
     var machinePickerOpen by rememberSaveable { mutableStateOf(false) }
 
+    CompositionLocalProvider(LocalDecimals provides decimals) {
     Column(
         modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -179,13 +228,13 @@ fun MachiningScreen(
                 val current = runCatching { TurningOperation.valueOf(draft.operation) }.getOrDefault(TurningOperation.TURNING)
                 val labels = TurningOperation.entries.associateWith { turningOperationLabel(it) }
                 TileGrid(items = TurningOperation.entries, columns = 3) { op, tileModifier ->
-                    ChoiceTile(turningGlyph(op), labels.getValue(op), op == current, { update { MachiningLinks.recompute(it.copy(operation = op.name)) } }, tileModifier)
+                    ChoiceTile(turningGlyph(op), labels.getValue(op), op == current, { update { MachiningLinks.recompute(it.copy(operation = op.name), decimals) } }, tileModifier)
                 }
             } else {
                 val current = runCatching { MillingOperation.valueOf(draft.operation) }.getOrDefault(MillingOperation.FACE)
                 val labels = MillingOperation.entries.associateWith { millingOperationLabel(it) }
                 TileGrid(items = MillingOperation.entries, columns = 3) { op, tileModifier ->
-                    ChoiceTile(millingGlyph(op), labels.getValue(op), op == current, { update { MachiningLinks.recompute(it.copy(operation = op.name)) } }, tileModifier)
+                    ChoiceTile(millingGlyph(op), labels.getValue(op), op == current, { update { MachiningLinks.recompute(it.copy(operation = op.name), decimals) } }, tileModifier)
                 }
             }
         }
@@ -199,7 +248,7 @@ fun MachiningScreen(
                     label = stringResource(R.string.mach_technical_material),
                     selected = materialLabels.getValue(material.id),
                     options = materials.map { it.id to materialLabels.getValue(it.id) },
-                    onSelect = { id -> update { it.copy(materialId = id, recommendationApplied = false) } },
+                    onSelect = { id -> update { it.copy(materialId = id) } },
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IsoBadge(material.group, size = 24.dp)
@@ -213,41 +262,38 @@ fun MachiningScreen(
                     label = stringResource(R.string.mach_tool),
                     selected = tool.tool.name,
                     options = compatibleTools.map { it.tool.id.toString() to it.tool.name },
-                    onSelect = { id -> update { it.copy(toolId = id.toLongOrNull(), recommendationApplied = false) } },
+                    onSelect = { id ->
+                        val picked = compatibleTools.firstOrNull { it.tool.id.toString() == id }
+                        val picks = resolveRecommendation(picked, material?.group, turning)
+                        update { d ->
+                            val next = d.copy(toolId = id.toLongOrNull(), recommendationApplied = false)
+                            if (picks != null) applyRecommendation(next, picks, turning, decimals) else next
+                        }
+                    },
                 )
                 val recommendation = resolveRecommendation(tool, material?.group, turning)
                 if (recommendation != null) {
                     Text(
                         text = stringResource(
                             R.string.mach_recommendation_range,
-                            Fmt.number(recommendation.cuttingSpeedMinMMin, 0),
-                            Fmt.number(recommendation.cuttingSpeedMaxMMin, 0),
-                            Fmt.number(recommendation.feedMinMm, 3),
-                            Fmt.number(recommendation.feedMaxMm, 3),
+                            Fmt.number(recommendation.cuttingSpeedMinMMin, decimals),
+                            Fmt.number(recommendation.cuttingSpeedMaxMMin, decimals),
+                            Fmt.number(recommendation.feedMinMm, decimals),
+                            Fmt.number(recommendation.feedMaxMm, decimals),
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     recommendation.depthMaxMm?.let {
                         Text(
-                            stringResource(R.string.mach_recommendation_depth, Fmt.number(it, 2)),
+                            stringResource(R.string.mach_recommendation_depth, Fmt.number(it, decimals)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     OutlinedButton(
                         onClick = {
-                            update { current ->
-                                val feedKey = if (turning) "feed" else "fz"
-                                val vc = MachUnit.convert(recommendation.cuttingSpeedStartMMin, MachUnit.M_MIN, current.unitOf("vc", Quantity.CUTTING_SPEED))
-                                val feed = MachUnit.convert(recommendation.feedStartMm, MachUnit.MM, current.unitOf(feedKey, Quantity.LENGTH))
-                                MachiningLinks.recompute(
-                                    current.copy(
-                                        fields = current.fields + ("vc" to Fmt.editable(vc)) + (feedKey to Fmt.editable(feed)),
-                                        recommendationApplied = true,
-                                    ),
-                                )
-                            }
+                            update { current -> applyRecommendation(current, recommendation, turning, decimals) }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.mach_apply_recommendation)) }
@@ -284,10 +330,13 @@ fun MachiningScreen(
 
         if (errors.isNotEmpty()) {
             IssuesCard(errors, draft)
+        } else if (pending.isNotEmpty()) {
+            PendingCard(pending, draft)
         } else {
-            MachiningResultCard(machine?.let { calculate(draft, turning, it) })
+            MachiningResultCard(machine?.let { calculate(draft, turning, it) }, decimals)
         }
         Spacer(Modifier.height(16.dp))
+    }
     }
 
     if (machinePickerOpen) {
@@ -405,7 +454,7 @@ private fun calculate(draft: MachiningDraft, turning: Boolean, profile: MachineP
 }
 
 @Composable
-private fun MachiningResultCard(result: Result<MachiningResult>?) {
+private fun MachiningResultCard(result: Result<MachiningResult>?, decimals: Int) {
     val value = result?.getOrNull()
     if (result != null && value == null) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
@@ -419,13 +468,13 @@ private fun MachiningResultCard(result: Result<MachiningResult>?) {
     ) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.mach_results).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .6f))
-            Text(value?.let { "${Fmt.number(it.adjustedRpm, 0)} RPM" } ?: "—", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.inverseOnSurface)
-            ResultLine(stringResource(R.string.mach_theoretical_rpm), value?.let { Fmt.number(it.theoreticalRpm, 1) })
-            ResultLine(stringResource(R.string.mach_actual_speed), value?.let { Fmt.number(it.actualCuttingSpeedMMin, 2) + " m/min" })
-            ResultLine(stringResource(R.string.mach_feed_min), value?.let { Fmt.number(it.feedMmMin, 2) + " mm/min" })
+            Text(value?.let { "${Fmt.number(it.adjustedRpm, 2)} RPM" } ?: "—", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.inverseOnSurface)
+            ResultLine(stringResource(R.string.mach_theoretical_rpm), value?.let { Fmt.number(it.theoreticalRpm, 2) })
+            ResultLine(stringResource(R.string.mach_actual_speed), value?.let { Fmt.number(it.actualCuttingSpeedMMin, decimals) + " m/min" })
+            ResultLine(stringResource(R.string.mach_feed_min), value?.let { Fmt.number(it.feedMmMin, decimals) + " mm/min" })
             ResultLine(stringResource(R.string.mach_passes), value?.passes?.totalPasses?.toString())
             ResultLine(stringResource(R.string.mach_cutting_time), value?.let { Fmt.number(it.cuttingTimeMin, 2) + " min" })
-            value?.removalRateCm3Min?.let { ResultLine(stringResource(R.string.mach_removal_rate), Fmt.number(it, 2) + " cm³/min") }
+            value?.removalRateCm3Min?.let { ResultLine(stringResource(R.string.mach_removal_rate), Fmt.number(it, decimals) + " cm³/min") }
             value?.warnings?.forEach { warning ->
                 Text(warningLabel(warning), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
@@ -453,6 +502,7 @@ private fun NumberRow(
     hint: String? = null,
     issue: FieldIssue? = null,
 ) {
+    val decimals = LocalDecimals.current
     val unit = quantity?.let { draft.unitOf(key, it) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f)) {
@@ -461,7 +511,7 @@ private fun NumberRow(
         }
         OutlinedTextField(
             value = draft.fields[key].orEmpty(),
-            onValueChange = { candidate -> if (candidate.isValidDecimalInput()) update { MachiningLinks.apply(it, key, candidate) } },
+            onValueChange = { candidate -> if (candidate.isValidDecimalInput()) update { MachiningLinks.apply(it, key, candidate, decimals) } },
             trailingIcon = {
                 if (unit != null && quantity != null) {
                     UnitPicker(unit, suffix) { picked ->
@@ -495,11 +545,12 @@ private fun IntegerRow(
     update: ((MachiningDraft) -> MachiningDraft) -> Unit,
     issue: FieldIssue? = null,
 ) {
+    val decimals = LocalDecimals.current
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         OutlinedTextField(
             value = draft.fields[key].orEmpty(),
-            onValueChange = { candidate -> if (candidate.all(Char::isDigit)) update { MachiningLinks.apply(it, key, candidate) } },
+            onValueChange = { candidate -> if (candidate.all(Char::isDigit)) update { MachiningLinks.apply(it, key, candidate, decimals) } },
             isError = issue?.severity == IssueSeverity.ERROR,
             supportingText = issue?.let { { IssueText(it, null) } },
             singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1.5f),
@@ -651,7 +702,7 @@ private fun issueMessage(issue: FieldIssue, unit: MachUnit?): String = when (iss
     IssueCode.OUT_OF_RANGE -> {
         val lo = issue.a ?: 0.0
         val hi = issue.b ?: 0.0
-        val decimals = if (unit?.quantity == Quantity.CUTTING_SPEED) 0 else 3
+        val decimals = LocalDecimals.current
         val (from, to) = if (unit != null) {
             MachUnit.convert(lo, MachUnit.base(unit.quantity), unit) to MachUnit.convert(hi, MachUnit.base(unit.quantity), unit)
         } else lo to hi
@@ -694,6 +745,29 @@ private fun fieldLabel(key: String, operation: String): String = stringResource(
         else -> R.string.mach_path_level
     },
 )
+
+/** Aviso neutro mientras falten valores por escribir: dice cuáles sin marcarlos como error. */
+@Composable
+private fun PendingCard(pending: List<FieldIssue>, draft: MachiningDraft) {
+    val labels = pending.map { fieldLabel(it.key, draft.operation) }.distinct()
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(20.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                stringResource(R.string.mach_fill_in_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                stringResource(R.string.mach_fill_in_missing, labels.joinToString(", ")),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
 
 /** Sustituye al resultado mientras haya valores incoherentes: dice qué campo corregir y por qué. */
 @Composable

@@ -18,7 +18,8 @@ object Fmt {
     fun number(value: Double, decimals: Int): String =
         if (value.isFinite()) formatter(decimals).format(value) else "—"
 
-    fun money(value: Double, settings: AppSettings, decimals: Int = settings.decimalPrecision): String =
+    /** El dinero siempre lleva 2 decimales, sin importar la precisión elegida en Configuración. */
+    fun money(value: Double, settings: AppSettings, decimals: Int = 2): String =
         if (value.isFinite()) "${settings.currencySymbol} ${formatter(decimals).format(value)}" else "—"
 
     /** "1 in × 20 ft" — resumen de las medidas del bruto en el orden que declara la forma. */
