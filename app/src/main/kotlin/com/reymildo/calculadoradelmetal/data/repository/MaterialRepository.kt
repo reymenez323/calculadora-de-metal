@@ -21,9 +21,12 @@ class MaterialRepository(private val materialDao: MaterialDao) {
         name: String,
         stockShape: Shape,
         stockDimensions: Map<DimensionType, DimensionValue>,
-        stockPrice: Double,
+        stockPrice: Double?,
+        technicalMaterialId: String? = null,
+        currencyCode: String? = null,
     ): Result<Long> {
-        val costPerVolumeCm3 = StockPricing.costPerVolumeCm3(stockShape, stockDimensions, stockPrice)
+        val storedPrice = stockPrice ?: 0.0
+        val costPerVolumeCm3 = StockPricing.costPerVolumeCm3(stockShape, stockDimensions, storedPrice)
             .getOrElse { return Result.failure(it) }
 
         val id = materialDao.insert(
@@ -32,8 +35,11 @@ class MaterialRepository(private val materialDao: MaterialDao) {
                 name = name,
                 stockShapeId = stockShape.id,
                 stockDimensionsJson = DimensionsCodec.encode(stockDimensions),
-                stockPrice = stockPrice,
+                stockPrice = storedPrice,
                 costPerVolumeCm3 = costPerVolumeCm3,
+                priceConfigured = stockPrice != null,
+                technicalMaterialId = technicalMaterialId,
+                currencyCode = currencyCode,
             ),
         )
         return Result.success(id)
@@ -44,9 +50,12 @@ class MaterialRepository(private val materialDao: MaterialDao) {
         name: String,
         stockShape: Shape,
         stockDimensions: Map<DimensionType, DimensionValue>,
-        stockPrice: Double,
+        stockPrice: Double?,
+        technicalMaterialId: String? = existing.technicalMaterialId,
+        currencyCode: String? = existing.currencyCode,
     ): Result<Unit> {
-        val costPerVolumeCm3 = StockPricing.costPerVolumeCm3(stockShape, stockDimensions, stockPrice)
+        val storedPrice = stockPrice ?: 0.0
+        val costPerVolumeCm3 = StockPricing.costPerVolumeCm3(stockShape, stockDimensions, storedPrice)
             .getOrElse { return Result.failure(it) }
 
         materialDao.update(
@@ -54,8 +63,11 @@ class MaterialRepository(private val materialDao: MaterialDao) {
                 name = name,
                 stockShapeId = stockShape.id,
                 stockDimensionsJson = DimensionsCodec.encode(stockDimensions),
-                stockPrice = stockPrice,
+                stockPrice = storedPrice,
                 costPerVolumeCm3 = costPerVolumeCm3,
+                priceConfigured = stockPrice != null,
+                technicalMaterialId = technicalMaterialId,
+                currencyCode = currencyCode,
                 updatedAtEpochMillis = System.currentTimeMillis(),
             ),
         )

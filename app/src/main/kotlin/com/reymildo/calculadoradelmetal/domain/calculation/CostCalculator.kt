@@ -35,6 +35,10 @@ object CostCalculator {
             }
         }
 
-        return Result.success(PieceCostResult(costPerPiece = costPerPiece, totalCost = costPerPiece * quantity))
+        val totalCost = costPerPiece * quantity
+        if (!costPerPiece.isFinite() || !totalCost.isFinite()) {
+            return Result.failure(IllegalArgumentException("El costo calculado está fuera del rango admitido."))
+        }
+        return Result.success(PieceCostResult(costPerPiece = costPerPiece, totalCost = totalCost))
     }
 }

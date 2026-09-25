@@ -50,8 +50,8 @@ import kotlinx.coroutines.delay
 /** Tarjeta blanca con encabezado en mayúsculas, el contenedor base de todas las pantallas. */
 @Composable
 fun SectionCard(
-    title: String? = null,
     modifier: Modifier = Modifier,
+    title: String? = null,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -114,7 +114,7 @@ fun DimensionRow(
             unit = unit,
             onUnitChange = onUnitChange,
             enabled = enabled,
-            modifier = Modifier.width(176.dp),
+            modifier = Modifier.weight(1.15f),
         )
     }
 }
@@ -131,7 +131,9 @@ fun NumberFieldWithUnit(
     var expanded by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
-        onValueChange = { onValueChange(it.sanitizeDecimal()) },
+        onValueChange = { candidate ->
+            if (candidate.isValidDecimalInput()) onValueChange(candidate)
+        },
         modifier = modifier,
         enabled = enabled,
         placeholder = { Text("0", style = MaterialTheme.typography.bodyMedium) },
@@ -164,6 +166,9 @@ fun NumberFieldWithUnit(
                         DropdownMenuItem(
                             text = { Text(candidate.symbol) },
                             onClick = {
+                                value.toDecimalOrNull()?.let { number ->
+                                    onValueChange(Fmt.editable(UnitConverter.convert(number, unit, candidate)))
+                                }
                                 onUnitChange(candidate)
                                 expanded = false
                             },
@@ -186,7 +191,9 @@ fun MoneyField(
 ) {
     OutlinedTextField(
         value = value,
-        onValueChange = { onValueChange(it.sanitizeDecimal()) },
+        onValueChange = { candidate ->
+            if (candidate.isValidDecimalInput()) onValueChange(candidate)
+        },
         modifier = modifier,
         singleLine = true,
         placeholder = { Text(placeholder, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth()) },

@@ -28,9 +28,15 @@ import kotlinx.coroutines.delay
  * name/credit/version content requested for the launch screen lives here instead.
  */
 @Composable
-fun SplashScreen(onFinished: () -> Unit) {
+fun SplashScreen(dataReady: Boolean, onFinished: () -> Unit) {
+    LaunchedEffect(dataReady) {
+        if (!dataReady) return@LaunchedEffect
+        delay(350)
+        onFinished()
+    }
+
     LaunchedEffect(Unit) {
-        delay(1400)
+        delay(3000)
         onFinished()
     }
 

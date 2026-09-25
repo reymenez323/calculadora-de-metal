@@ -17,6 +17,8 @@ class CalculadoraApp : Application() {
         super.onCreate()
         applicationScope.launch {
             container.supplierRepository.ensureSeeded()
+            container.machineProfileRepository.ensureDefaults()
+            container.machiningRepository.ensureDefaults()
         }
     }
 }

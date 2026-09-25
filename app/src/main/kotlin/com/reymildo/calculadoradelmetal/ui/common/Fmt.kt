@@ -4,6 +4,7 @@ import com.reymildo.calculadoradelmetal.data.settings.AppSettings
 import com.reymildo.calculadoradelmetal.domain.model.DimensionType
 import com.reymildo.calculadoradelmetal.domain.model.DimensionValue
 import java.text.NumberFormat
+import java.math.BigDecimal
 import java.util.Locale
 
 object Fmt {
@@ -27,21 +28,28 @@ object Fmt {
         }.joinToString(" × ")
 
     fun trimNumber(value: Double): String =
-        if (value == value.toLong().toDouble()) value.toLong().toString()
-        else NumberFormat.getNumberInstance(Locale.getDefault()).apply {
-            maximumFractionDigits = 4
-        }.format(value)
+        editable(value)
+
+    /** A locale-neutral representation intended to be placed back in an editable field. */
+    fun editable(value: Double): String =
+        if (!value.isFinite()) "" else BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
 }
 
-/** Texto de un campo numérico → Double, aceptando coma decimal. */
-fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()
-
-/** Filtra lo que el usuario escribe para dejar solo un número decimal. */
-fun String.sanitizeDecimal(): String {
-    val cleaned = filter { it.isDigit() || it == '.' || it == ',' }.replace(',', '.')
-    val firstDot = cleaned.indexOf('.')
-    if (firstDot == -1) return cleaned
-    return cleaned.substring(0, firstDot + 1) + cleaned.substring(firstDot + 1).filter { it != '.' }
+/** Accepts one decimal separator and rejects signs, fractions and grouping ambiguities. */
+fun String.toDecimalOrNull(): Double? {
+    val value = trim()
+    if (value.isEmpty() || !value.isValidDecimalInput(allowEmpty = false)) return null
+    return value.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 }
+
+fun String.isValidDecimalInput(allowEmpty: Boolean = true): Boolean {
+    if (isEmpty()) return allowEmpty
+    if (isBlank() || any { it.isWhitespace() } || (contains('.') && contains(','))) return false
+    return matches(Regex("^\\d+(?:[.,]\\d*)?$") ) || (allowEmpty && matches(Regex("^0?[.,]\\d*$")))
+}
+
+/** Keeps the last valid value instead of silently changing what the user typed. */
+fun String.sanitizeDecimal(previous: String = ""): String =
+    if (isValidDecimalInput()) this else previous
 
 fun String.sanitizeInt(): String = filter { it.isDigit() }.take(6)

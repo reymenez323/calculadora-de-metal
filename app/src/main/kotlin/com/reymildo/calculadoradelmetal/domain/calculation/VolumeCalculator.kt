@@ -30,6 +30,10 @@ object VolumeCalculator {
         if (errors.isNotEmpty()) {
             return Result.failure(IllegalArgumentException(errors.joinToString(" ")))
         }
-        return Result.success(shape.volumeCm3(dims))
+        val volume = shape.volumeCm3(dims)
+        if (!volume.isFinite() || volume <= 0.0) {
+            return Result.failure(IllegalArgumentException("El volumen calculado no es válido."))
+        }
+        return Result.success(volume)
     }
 }

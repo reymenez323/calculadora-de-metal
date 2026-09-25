@@ -16,6 +16,9 @@ interface MaterialDao {
     @Query("SELECT * FROM materials ORDER BY name")
     fun observeAll(): Flow<List<MaterialEntity>>
 
+    @Query("SELECT * FROM materials ORDER BY id")
+    suspend fun listAll(): List<MaterialEntity>
+
     @Query("SELECT * FROM materials WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): MaterialEntity?
 
@@ -27,4 +30,7 @@ interface MaterialDao {
 
     @Delete
     suspend fun delete(material: MaterialEntity)
+
+    @Query("DELETE FROM materials")
+    suspend fun deleteAll()
 }

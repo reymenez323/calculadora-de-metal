@@ -2,6 +2,8 @@
 
 package com.reymildo.calculadoradelmetal.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,19 +39,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.BuildConfig
 import com.reymildo.calculadoradelmetal.data.settings.AppLanguage
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
 import com.reymildo.calculadoradelmetal.domain.model.LengthUnit
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.Stepper
 import com.reymildo.calculadoradelmetal.ui.theme.NumberFamily
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -59,10 +65,36 @@ fun SettingsScreen(
     onDecimalsChange: (Int) -> Unit,
     onCurrencyChange: (String) -> Unit,
     onResetDefaults: () -> Unit,
+    onExportBackup: suspend () -> Result<String>,
+    onImportBackup: suspend (String) -> Result<Unit>,
+    onShowTutorial: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var unitMenu by remember { mutableStateOf(false) }
     var resetDialog by remember { mutableStateOf(false) }
+    var pendingImport by remember { mutableStateOf<String?>(null) }
+    var backupMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val exportSuccess = stringResource(R.string.set_backup_exported)
+    val importSuccess = stringResource(R.string.set_backup_imported)
+    val backupFailure = stringResource(R.string.set_backup_failed)
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            onExportBackup().onSuccess { raw ->
+                runCatching { requireNotNull(context.contentResolver.openOutputStream(uri)).bufferedWriter().use { it.write(raw) } }
+                    .onSuccess { backupMessage = exportSuccess }
+                    .onFailure { backupMessage = backupFailure }
+            }.onFailure { backupMessage = backupFailure }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching { requireNotNull(context.contentResolver.openInputStream(uri)).bufferedReader().use { it.readText() } }
+                .onSuccess { raw -> pendingImport = raw }
+                .onFailure { backupMessage = backupFailure }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -163,6 +195,26 @@ fun SettingsScreen(
             }
         }
 
+        SectionCard(title = stringResource(R.string.set_tutorial_title)) {
+            Text(stringResource(R.string.set_tutorial_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = onShowTutorial, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.set_tutorial_cta))
+            }
+        }
+
+        SectionCard(title = stringResource(R.string.set_backup_title)) {
+            Text(stringResource(R.string.set_backup_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { exportLauncher.launch("calculadora-metal-respaldo.json") }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.set_backup_export))
+                }
+                OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain")) }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.set_backup_import))
+                }
+            }
+            backupMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+        }
+
         SectionCard {
             Text(
                 text = stringResource(R.string.set_reset_title),
@@ -186,7 +238,7 @@ fun SettingsScreen(
 
         Column(modifier = Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = stringResource(R.string.set_about_version),
+                text = stringResource(R.string.set_about_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -218,6 +270,25 @@ fun SettingsScreen(
                     Text(stringResource(R.string.common_cancel))
                 }
             },
+        )
+    }
+
+    pendingImport?.let { raw ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text(stringResource(R.string.set_backup_import_title)) },
+            text = { Text(stringResource(R.string.set_backup_import_body)) },
+            confirmButton = {
+                Button(onClick = {
+                    pendingImport = null
+                    scope.launch {
+                        onImportBackup(raw)
+                            .onSuccess { backupMessage = importSuccess }
+                            .onFailure { backupMessage = it.message ?: backupFailure }
+                    }
+                }) { Text(stringResource(R.string.set_backup_import_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingImport = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

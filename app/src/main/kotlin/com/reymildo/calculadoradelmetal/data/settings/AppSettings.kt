@@ -7,4 +7,5 @@ data class AppSettings(
     val defaultLengthUnit: LengthUnit = LengthUnit.IN,
     val decimalPrecision: Int = 2,
     val currencySymbol: String = "$",
+    val tutorialDismissed: Boolean = false,
 )

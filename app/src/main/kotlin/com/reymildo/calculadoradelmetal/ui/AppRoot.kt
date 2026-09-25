@@ -2,7 +2,11 @@
 
 package com.reymildo.calculadoradelmetal.ui
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,64 +29,115 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
+import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
+import com.reymildo.calculadoradelmetal.data.local.relation.SupplierWithMaterials
+import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
 import com.reymildo.calculadoradelmetal.di.AppContainer
 import com.reymildo.calculadoradelmetal.ui.calc.CalcHeader
 import com.reymildo.calculadoradelmetal.ui.calc.CalcMode
 import com.reymildo.calculadoradelmetal.ui.calc.CalculatorScreen
+import com.reymildo.calculadoradelmetal.ui.common.Glyph
+import com.reymildo.calculadoradelmetal.ui.common.GlyphIcon
+import com.reymildo.calculadoradelmetal.ui.machining.MachiningScreen
 import com.reymildo.calculadoradelmetal.ui.settings.SettingsScreen
 import com.reymildo.calculadoradelmetal.ui.suppliers.SuppliersScreen
 import com.reymildo.calculadoradelmetal.ui.theme.CalculadoraTheme
+import com.reymildo.calculadoradelmetal.ui.workshop.MachinesScreen
+import com.reymildo.calculadoradelmetal.ui.workshop.MachiningLibraryScreen
+import com.reymildo.calculadoradelmetal.ui.workshop.WorkshopHost
+import com.reymildo.calculadoradelmetal.ui.workshop.WorkshopSection
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private enum class Tab { CALC, SUPPLIERS, SETTINGS }
+private enum class Tab { CALC, WORKSHOP, SETTINGS }
+
+/** Busca la Activity (o cualquier dueño del registro de resultados) detrás de los ContextWrapper. */
+private fun Context.findActivityResultOwner(): ActivityResultRegistryOwner? {
+    var current: Context? = this
+    while (current != null) {
+        if (current is ActivityResultRegistryOwner) return current
+        current = (current as? ContextWrapper)?.baseContext
+    }
+    return null
+}
 
 @Composable
 fun AppRoot(container: AppContainer) {
-    val settings by container.settingsRepository.settings.collectAsState(initial = AppSettings())
+    // null = todavía cargando; evita mostrar el tutorial a quien ya lo desactivó antes de leer el ajuste.
+    val loadedSettings by container.settingsRepository.settings.collectAsState(initial = null)
+    val settings = loadedSettings ?: AppSettings()
     val suppliers by container.supplierRepository
         .observeSuppliersWithMaterials()
         .collectAsState(initial = emptyList())
+    val machineProfiles by container.machineProfileRepository.observeAll().collectAsState(initial = emptyList())
+    val machiningMaterials by container.machiningRepository.observeMaterials().collectAsState(initial = emptyList())
+    val tools by container.machiningRepository.observeTools().collectAsState(initial = emptyList())
 
     // Idioma en caliente: se reescribe el Context para que stringResource lea values-en/.
     val baseContext = LocalContext.current
     val localizedContext = remember(settings.language, baseContext) {
         val configuration = Configuration(baseContext.resources.configuration)
-        configuration.setLocale(Locale(settings.language.tag))
+        configuration.setLocale(Locale.forLanguageTag(settings.language.tag))
         baseContext.createConfigurationContext(configuration)
     }
+    // createConfigurationContext devuelve un contexto que ya NO envuelve a la Activity, así que
+    // rememberLauncherForActivityResult (Configuración: exportar/importar respaldo) no encontraba
+    // el registro de resultados y la app se cerraba al abrir esa pestaña.
+    val activityResultOwner = remember(baseContext) { baseContext.findActivityResultOwner() }
 
-    var showSplash by remember { mutableStateOf(true) }
+    var showSplash by rememberSaveable { mutableStateOf(true) }
 
     CalculadoraTheme {
         CompositionLocalProvider(
             LocalContext provides localizedContext,
             LocalConfiguration provides localizedContext.resources.configuration,
         ) {
-            if (showSplash) {
-                SplashScreen(onFinished = { showSplash = false })
-            } else {
-                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-                    AppScaffold(container = container, settings = settings, suppliers = suppliers)
+            val content: @Composable () -> Unit = {
+                if (showSplash) {
+                    SplashScreen(
+                        dataReady = loadedSettings != null && suppliers.isNotEmpty() && machineProfiles.isNotEmpty() &&
+                            machiningMaterials.isNotEmpty() && tools.isNotEmpty(),
+                        onFinished = { showSplash = false },
+                    )
+                } else {
+                    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                        AppScaffold(
+                            container = container,
+                            settings = settings,
+                            suppliers = suppliers,
+                            machineProfiles = machineProfiles,
+                            machiningMaterials = machiningMaterials,
+                            tools = tools,
+                        )
+                    }
                 }
+            }
+            val owner = activityResultOwner
+            if (owner != null) {
+                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) { content() }
+            } else {
+                content()
             }
         }
     }
@@ -92,13 +147,35 @@ fun AppRoot(container: AppContainer) {
 private fun AppScaffold(
     container: AppContainer,
     settings: AppSettings,
-    suppliers: List<com.reymildo.calculadoradelmetal.data.local.relation.SupplierWithMaterials>,
+    suppliers: List<SupplierWithMaterials>,
+    machineProfiles: List<MachineProfileEntity>,
+    machiningMaterials: List<MachiningMaterialEntity>,
+    tools: List<ToolWithRecommendations>,
 ) {
-    var tab by remember { mutableStateOf(Tab.CALC) }
-    var calcMode by remember { mutableStateOf(CalcMode.MATERIA_PRIMA) }
+    var tab by rememberSaveable { mutableStateOf(Tab.CALC) }
+    var calcMode by rememberSaveable { mutableStateOf(CalcMode.MATERIA_PRIMA) }
+    var workshopSection by rememberSaveable { mutableStateOf(WorkshopSection.STOCK) }
     var calcHeader by remember { mutableStateOf<CalcHeader?>(null) }
+    var tutorialVisible by rememberSaveable { mutableStateOf(true) }
+    var tutorialStep by rememberSaveable { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    val showTutorial = tutorialVisible && !settings.tutorialDismissed
 
+    // Cada paso del tutorial lleva la app detrás del cuadro a la sección que explica.
+    LaunchedEffect(tutorialStep, showTutorial) {
+        if (!showTutorial) return@LaunchedEffect
+        when (tutorialSteps[tutorialStep].target) {
+            TutorialTarget.NONE -> Unit
+            TutorialTarget.STOCK -> { tab = Tab.WORKSHOP; workshopSection = WorkshopSection.STOCK }
+            TutorialTarget.MACHINES -> { tab = Tab.WORKSHOP; workshopSection = WorkshopSection.MACHINES }
+            TutorialTarget.MACHINING -> { tab = Tab.WORKSHOP; workshopSection = WorkshopSection.MACHINING }
+            TutorialTarget.CALC_STOCK -> { tab = Tab.CALC; calcMode = CalcMode.MATERIA_PRIMA; calcHeader = null }
+            TutorialTarget.CALC_TURNING -> { tab = Tab.CALC; calcMode = CalcMode.TORNEADO; calcHeader = null }
+            TutorialTarget.SETTINGS -> tab = Tab.SETTINGS
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -130,18 +207,21 @@ private fun AppScaffold(
                             } else {
                                 CalcModeDropdown(
                                     mode = calcMode,
-                                    onModeChange = { calcMode = it },
+                                    onModeChange = {
+                                        calcMode = it
+                                        calcHeader = null
+                                    },
                                     style = MaterialTheme.typography.headlineMedium,
                                 )
                             }
                         }
-                        Tab.SUPPLIERS -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Tab.WORKSHOP -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = stringResource(R.string.tab_suppliers),
+                                text = stringResource(R.string.tab_workshop),
                                 style = MaterialTheme.typography.headlineMedium,
                             )
                             Text(
-                                text = stringResource(R.string.sup_subtitle),
+                                text = stringResource(R.string.workshop_subtitle),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -181,7 +261,7 @@ private fun AppScaffold(
                             Text(
                                 text = when (candidate) {
                                     Tab.CALC -> stringResource(R.string.tab_calc)
-                                    Tab.SUPPLIERS -> stringResource(R.string.tab_suppliers)
+                                    Tab.WORKSHOP -> stringResource(R.string.tab_workshop)
                                     Tab.SETTINGS -> stringResource(R.string.tab_settings)
                                 },
                                 style = MaterialTheme.typography.labelMedium,
@@ -193,46 +273,89 @@ private fun AppScaffold(
         },
     ) { padding ->
         when (tab) {
-            Tab.CALC -> CalculatorScreen(
-                suppliers = suppliers,
-                settings = settings,
-                modifier = Modifier.padding(padding),
-                mode = calcMode,
-                onHeaderChange = { calcHeader = it },
-            )
+            Tab.CALC -> if (calcMode == CalcMode.MATERIA_PRIMA) {
+                CalculatorScreen(
+                    suppliers = suppliers,
+                    settings = settings,
+                    modifier = Modifier.padding(padding),
+                    onHeaderChange = { calcHeader = it },
+                )
+            } else {
+                MachiningScreen(
+                    mode = calcMode,
+                    machines = machineProfiles,
+                    materials = machiningMaterials,
+                    tools = tools,
+                    modifier = Modifier.padding(padding),
+                    onOpenMachines = {
+                        workshopSection = WorkshopSection.MACHINES
+                        tab = Tab.WORKSHOP
+                    },
+                )
+            }
 
-            Tab.SUPPLIERS -> SuppliersScreen(
-                suppliers = suppliers,
-                settings = settings,
+            Tab.WORKSHOP -> WorkshopHost(
+                section = workshopSection,
+                onSectionChange = { workshopSection = it },
                 modifier = Modifier.padding(padding),
-                onSaveMaterial = { supplierId, existing, name, shape, dimensions, price ->
-                    scope.launch {
-                        if (existing == null) {
-                            container.materialRepository.addMaterial(
-                                supplierId = supplierId,
-                                name = name,
-                                stockShape = shape,
-                                stockDimensions = dimensions,
-                                stockPrice = price,
-                            )
-                        } else {
-                            container.materialRepository.updateMaterial(
-                                existing = existing,
-                                name = name,
-                                stockShape = shape,
-                                stockDimensions = dimensions,
-                                stockPrice = price,
-                            )
-                        }
-                    }
-                },
-                onDeleteMaterial = { entity ->
-                    scope.launch { container.materialRepository.deleteMaterial(entity) }
-                },
-                onAddSupplier = { name ->
-                    scope.launch { container.supplierRepository.addSupplier(name) }
-                },
-            )
+            ) { section, sectionModifier ->
+                when (section) {
+                    WorkshopSection.STOCK -> SuppliersScreen(
+                        suppliers = suppliers,
+                        machiningMaterials = machiningMaterials,
+                        settings = settings,
+                        modifier = sectionModifier,
+                        onSaveMaterial = { supplierId, existing, name, shape, dimensions, price, technicalMaterialId ->
+                            if (existing == null) {
+                                container.materialRepository.addMaterial(
+                                    supplierId = supplierId,
+                                    name = name,
+                                    stockShape = shape,
+                                    stockDimensions = dimensions,
+                                    stockPrice = price,
+                                    technicalMaterialId = technicalMaterialId,
+                                    currencyCode = settings.currencySymbol,
+                                ).map { Unit }
+                            } else {
+                                container.materialRepository.updateMaterial(
+                                    existing = existing,
+                                    name = name,
+                                    stockShape = shape,
+                                    stockDimensions = dimensions,
+                                    stockPrice = price,
+                                    technicalMaterialId = technicalMaterialId,
+                                    currencyCode = settings.currencySymbol,
+                                )
+                            }
+                        },
+                        onDeleteMaterial = { entity ->
+                            scope.launch { container.materialRepository.deleteMaterial(entity) }
+                        },
+                        onAddSupplier = { name ->
+                            scope.launch { container.supplierRepository.addSupplier(name) }
+                        },
+                        onRenameSupplier = { id, name -> scope.launch { container.supplierRepository.renameSupplier(id, name) } },
+                        onDeleteSupplier = { supplier -> scope.launch { container.supplierRepository.deleteSupplier(supplier) } },
+                    )
+
+                    WorkshopSection.MACHINES -> MachinesScreen(
+                        machines = machineProfiles,
+                        onSave = { container.machineProfileRepository.save(it) },
+                        onDelete = { machine -> scope.launch { container.machineProfileRepository.delete(machine) } },
+                        modifier = sectionModifier,
+                    )
+
+                    WorkshopSection.MACHINING -> MachiningLibraryScreen(
+                        materials = machiningMaterials,
+                        tools = tools,
+                        onSaveMaterial = { container.machiningRepository.saveMaterial(it) },
+                        onDeleteMaterial = { material -> scope.launch { container.machiningRepository.deleteMaterial(material) } },
+                        onSaveTool = { tool, recommendations -> container.machiningRepository.saveTool(tool, recommendations) },
+                        onDeleteTool = { tool -> scope.launch { container.machiningRepository.deleteTool(tool) } },
+                        modifier = sectionModifier,
+                    )
+                }
+            }
 
             Tab.SETTINGS -> SettingsScreen(
                 settings = settings,
@@ -242,8 +365,27 @@ private fun AppScaffold(
                 onDecimalsChange = { scope.launch { container.settingsRepository.setDecimalPrecision(it) } },
                 onCurrencyChange = { scope.launch { container.settingsRepository.setCurrencySymbol(it) } },
                 onResetDefaults = { scope.launch { container.supplierRepository.resetToDefaults() } },
+                onExportBackup = { container.backupRepository.exportJson() },
+                onImportBackup = { raw -> container.backupRepository.importJson(raw) },
+                onShowTutorial = {
+                    scope.launch { container.settingsRepository.setTutorialDismissed(false) }
+                    tutorialStep = 0
+                    tutorialVisible = true
+                },
             )
         }
+    }
+    if (showTutorial) {
+        TutorialOverlay(
+            step = tutorialStep,
+            onStepChange = { tutorialStep = it },
+            onSkip = { tutorialVisible = false },
+            onNeverShow = {
+                tutorialVisible = false
+                scope.launch { container.settingsRepository.setTutorialDismissed(true) }
+            },
+        )
+    }
     }
 }
 
@@ -254,11 +396,7 @@ private fun calcModeLabel(mode: CalcMode): String = when (mode) {
     CalcMode.FRESADO -> stringResource(R.string.calc_mode_fresado)
 }
 
-/**
- * Reemplaza el título "Calcular" de esa pestaña: deja elegir el modo de trabajo (materia prima,
- * torneado, fresado) directamente ahí arriba. Solo materia prima está implementada por ahora; las
- * otras dos ya aparecen en la lista para cuando se construyan.
- */
+/** Permite cambiar entre los tres modos de cálculo desde el encabezado de la pestaña. */
 @Composable
 private fun CalcModeDropdown(
     mode: CalcMode,
@@ -266,9 +404,12 @@ private fun CalcModeDropdown(
     style: androidx.compose.ui.text.TextStyle,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // DropdownMenu usa una ventana Compose independiente; resolver los recursos aquí conserva
+    // el idioma elegido por la aplicación también dentro de esa ventana.
+    val modeLabels = CalcMode.entries.associateWith { calcModeLabel(it) }
     Box {
         Text(
-            text = calcModeLabel(mode) + " ⌄",
+            text = modeLabels.getValue(mode) + " ⌄",
             style = style,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.clickableNoRipple { expanded = true },
@@ -276,7 +417,7 @@ private fun CalcModeDropdown(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             CalcMode.entries.forEach { candidate ->
                 DropdownMenuItem(
-                    text = { Text(calcModeLabel(candidate)) },
+                    text = { Text(modeLabels.getValue(candidate)) },
                     onClick = {
                         onModeChange(candidate)
                         expanded = false
@@ -298,6 +439,10 @@ private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = this.the
 /** Iconos de la barra inferior, dibujados a mano para no depender de material-icons-extended. */
 @Composable
 private fun TabIcon(tab: Tab, color: Color) {
+    if (tab == Tab.WORKSHOP) {
+        GlyphIcon(Glyph.WORKSHOP, color, size = 22.dp)
+        return
+    }
     Canvas(modifier = Modifier.size(22.dp)) {
         val u = size.minDimension / 24f
         val stroke = Stroke(width = 1.9f * u)
@@ -320,28 +465,7 @@ private fun TabIcon(tab: Tab, color: Color) {
                 line(12f, 16f, 16f, 16f)
             }
 
-            Tab.SUPPLIERS -> {
-                val top = Path().apply {
-                    moveTo(3f * u, 7.5f * u)
-                    lineTo(12f * u, 3f * u)
-                    lineTo(21f * u, 7.5f * u)
-                    lineTo(12f * u, 12f * u)
-                    close()
-                }
-                drawPath(top, color, style = stroke)
-                val mid = Path().apply {
-                    moveTo(3f * u, 12.5f * u)
-                    lineTo(12f * u, 17f * u)
-                    lineTo(21f * u, 12.5f * u)
-                }
-                drawPath(mid, color, style = stroke)
-                val bottom = Path().apply {
-                    moveTo(3f * u, 17f * u)
-                    lineTo(12f * u, 21.5f * u)
-                    lineTo(21f * u, 17f * u)
-                }
-                drawPath(bottom, color, style = stroke)
-            }
+            Tab.WORKSHOP -> Unit
 
             Tab.SETTINGS -> {
                 line(4f, 7f, 20f, 7f)

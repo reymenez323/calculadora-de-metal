@@ -15,6 +15,9 @@ interface SupplierDao {
     @Query("SELECT * FROM suppliers ORDER BY sortOrder, name")
     fun observeAll(): Flow<List<SupplierEntity>>
 
+    @Query("SELECT * FROM suppliers ORDER BY sortOrder, name")
+    suspend fun listAll(): List<SupplierEntity>
+
     @Transaction
     @Query("SELECT * FROM suppliers ORDER BY sortOrder, name")
     fun observeSuppliersWithMaterials(): Flow<List<SupplierWithMaterials>>

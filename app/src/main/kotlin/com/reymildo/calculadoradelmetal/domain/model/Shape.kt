@@ -155,10 +155,11 @@ sealed class Shape(val id: String, val requiredDimensions: List<DimensionType>) 
             dims.cm(DimensionType.HEIGHT) - 2 * dims.cm(DimensionType.FLANGE_THICKNESS)
 
         override fun additionalValidation(dims: Map<DimensionType, DimensionValue>): List<String> =
-            if (webHeightCm(dims) <= 0) {
-                listOf("El grosor de las alas es demasiado grande para la altura indicada.")
-            } else {
-                emptyList()
+            buildList {
+                if (webHeightCm(dims) <= 0) add("El grosor de las alas es demasiado grande para la altura indicada.")
+                if (dims.cm(DimensionType.WEB_THICKNESS) >= dims.cm(DimensionType.WIDTH)) {
+                    add("El grosor del alma debe ser menor que el ancho del ala.")
+                }
             }
 
         override fun volumeCm3(dims: Map<DimensionType, DimensionValue>): Double {
@@ -182,10 +183,11 @@ sealed class Shape(val id: String, val requiredDimensions: List<DimensionType>) 
             dims.cm(DimensionType.HEIGHT) - dims.cm(DimensionType.FLANGE_THICKNESS)
 
         override fun additionalValidation(dims: Map<DimensionType, DimensionValue>): List<String> =
-            if (stemHeightCm(dims) <= 0) {
-                listOf("El grosor del ala es demasiado grande para la altura indicada.")
-            } else {
-                emptyList()
+            buildList {
+                if (stemHeightCm(dims) <= 0) add("El grosor del ala es demasiado grande para la altura indicada.")
+                if (dims.cm(DimensionType.WEB_THICKNESS) >= dims.cm(DimensionType.WIDTH)) {
+                    add("El grosor del alma debe ser menor que el ancho del ala.")
+                }
             }
 
         override fun volumeCm3(dims: Map<DimensionType, DimensionValue>): Double {

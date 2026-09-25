@@ -1,6 +1,7 @@
 package com.reymildo.calculadoradelmetal.data.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -18,6 +19,7 @@ class SettingsRepository(private val context: Context) {
         val DEFAULT_LENGTH_UNIT = stringPreferencesKey("default_length_unit")
         val DECIMAL_PRECISION = intPreferencesKey("decimal_precision")
         val CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
+        val TUTORIAL_DISMISSED = booleanPreferencesKey("tutorial_dismissed")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -28,6 +30,7 @@ class SettingsRepository(private val context: Context) {
                 ?: LengthUnit.IN,
             decimalPrecision = prefs[Keys.DECIMAL_PRECISION] ?: 2,
             currencySymbol = prefs[Keys.CURRENCY_SYMBOL] ?: "$",
+            tutorialDismissed = prefs[Keys.TUTORIAL_DISMISSED] ?: false,
         )
     }
 
@@ -45,5 +48,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCurrencySymbol(symbol: String) {
         context.dataStore.edit { it[Keys.CURRENCY_SYMBOL] = symbol }
+    }
+
+    suspend fun setTutorialDismissed(dismissed: Boolean) {
+        context.dataStore.edit { it[Keys.TUTORIAL_DISMISSED] = dismissed }
     }
 }

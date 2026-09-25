@@ -44,6 +44,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.DimensionsCodec
@@ -130,21 +133,20 @@ fun CalculatorScreen(
     suppliers: List<SupplierWithMaterials>,
     settings: AppSettings,
     modifier: Modifier = Modifier,
-    mode: CalcMode = CalcMode.MATERIA_PRIMA,
     onHeaderChange: (CalcHeader?) -> Unit = {},
 ) {
-    if (mode != CalcMode.MATERIA_PRIMA) {
-        LaunchedEffect(Unit) { onHeaderChange(null) }
-        ComingSoonScreen(modifier = modifier)
-        return
-    }
-
-    var selectedShapeId by remember { mutableStateOf<String?>(null) }
-    val values = remember { mutableStateMapOf<DimensionType, String>() }
-    val units = remember { mutableStateMapOf<DimensionType, LengthUnit>() }
-    var quantity by remember { mutableStateOf("1") }
-    var manualCostText by remember { mutableStateOf("") }
-    var selectedMaterialId by remember { mutableStateOf<Long?>(null) }
+    var selectedShapeId by rememberSaveable { mutableStateOf<String?>(null) }
+    val values = rememberSaveable(saver = listSaver(
+        save = { map -> map.flatMap { listOf(it.key.name, it.value) } },
+        restore = { stored -> mutableStateMapOf<DimensionType, String>().apply { stored.chunked(2).forEach { put(DimensionType.valueOf(it[0]), it[1]) } } },
+    )) { mutableStateMapOf<DimensionType, String>() }
+    val units = rememberSaveable(saver = listSaver(
+        save = { map -> map.flatMap { listOf(it.key.name, it.value.name) } },
+        restore = { stored -> mutableStateMapOf<DimensionType, LengthUnit>().apply { stored.chunked(2).forEach { put(DimensionType.valueOf(it[0]), LengthUnit.valueOf(it[1])) } } },
+    )) { mutableStateMapOf<DimensionType, LengthUnit>() }
+    var quantity by rememberSaveable { mutableStateOf("1") }
+    var manualCostText by rememberSaveable { mutableStateOf("") }
+    var selectedMaterialId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pickerOpen by remember { mutableStateOf(false) }
     val recentIds = remember { mutableStateListOf<Long>() }
 
@@ -176,7 +178,7 @@ fun CalculatorScreen(
                 manualCostText = ""
                 // el costo/cm³ de un bruto solo aplica a su misma forma
                 val compatible = rows.filter { it.entity.stockShapeId == shape.id }
-                val picked = compatible.firstOrNull { it.entity.costPerVolumeCm3 > 0.0 } ?: compatible.firstOrNull()
+                val picked = compatible.firstOrNull { it.entity.priceConfigured } ?: compatible.firstOrNull()
                 selectedMaterialId = picked?.entity?.id
                 applyLockedDimensions(shape, picked, values, units)
             },
@@ -208,7 +210,7 @@ fun CalculatorScreen(
     val manualCost = manualCostText.toDecimalOrNull()?.takeIf { it > 0.0 }
     val material = rows.firstOrNull { it.entity.id == selectedMaterialId }
     val rate = material?.entity?.costPerVolumeCm3 ?: 0.0
-    val priceMissing = manualCost == null && rate <= 0.0
+    val priceMissing = manualCost == null && material?.entity?.priceConfigured != true
 
     val cost = if (volume != null && pieces > 0 && !priceMissing) {
         CostCalculator.calculate(
@@ -334,7 +336,7 @@ fun CalculatorScreen(
                     onValueChange = { manualCostText = it },
                     currencySymbol = settings.currencySymbol,
                     placeholder = "—",
-                    modifier = Modifier.width(176.dp),
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -375,12 +377,14 @@ fun CalculatorScreen(
         }
 
         ResultCard(
-            settings = settings,
+            settings = if (manualCost == null) {
+                settings.copy(currencySymbol = material?.entity?.currencyCode ?: settings.currencySymbol)
+            } else settings,
             pieces = pieces,
             volumeCm3 = volume,
             costPerPiece = cost?.costPerPiece,
             totalCost = cost?.totalCost,
-            rate = if (manualCost != null) null else rate.takeIf { it > 0.0 },
+            rate = if (manualCost != null || material?.entity?.priceConfigured != true) null else rate,
         )
 
         Spacer(Modifier.height(16.dp))
@@ -408,28 +412,12 @@ fun CalculatorScreen(
 }
 
 @Composable
-private fun ComingSoonScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.calc_mode_coming_soon),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
 private fun ShapePickerScreen(
     onPick: (Shape) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Adaptive(104.dp),
         modifier = modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -621,7 +609,7 @@ private fun MaterialPickerSheet(
                 }
                 items(items, key = { it.entity.id }) { row ->
                     val selected = row.entity.id == selectedId
-                    val configured = row.entity.costPerVolumeCm3 > 0.0
+                    val configured = row.entity.priceConfigured
                     Card(
                         onClick = { onPick(row.entity.id) },
                         shape = RoundedCornerShape(14.dp),
@@ -665,7 +653,7 @@ private fun MaterialPickerSheet(
                             }
                             Text(
                                 text = if (configured) {
-                                    Fmt.money(row.entity.stockPrice, settings, 0)
+                                    Fmt.money(row.entity.stockPrice, settings.copy(currencySymbol = row.entity.currencyCode ?: settings.currencySymbol), 0)
                                 } else {
                                     stringResource(R.string.material_no_price)
                                 },
@@ -709,7 +697,7 @@ private fun MaterialPickerSheet(
                             text = if (showAll) {
                                 stringResource(R.string.material_show_compatible, shapeName)
                             } else {
-                                stringResource(R.string.material_show_all, othersCount)
+                                pluralStringResource(R.plurals.material_show_all, othersCount, othersCount)
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
