@@ -59,8 +59,7 @@ import com.reymildo.calculadoradelmetal.domain.model.DimensionType
 import com.reymildo.calculadoradelmetal.domain.model.DimensionValue
 import com.reymildo.calculadoradelmetal.domain.model.LengthUnit
 import com.reymildo.calculadoradelmetal.domain.model.Shape
-import com.reymildo.calculadoradelmetal.domain.machining.IsoGroup
-import com.reymildo.calculadoradelmetal.ui.common.isoName
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.ui.common.DimensionRow
 import com.reymildo.calculadoradelmetal.ui.common.Fmt
 import com.reymildo.calculadoradelmetal.ui.common.MoneyField
@@ -77,6 +76,7 @@ private data class FormTarget(val supplierId: Long, val existing: MaterialEntity
 @Composable
 fun SuppliersScreen(
     suppliers: List<SupplierWithMaterials>,
+    machiningMaterials: List<MachiningMaterialEntity>,
     settings: AppSettings,
     onSaveMaterial: suspend (
         supplierId: Long,
@@ -198,6 +198,7 @@ fun SuppliersScreen(
         MaterialFormSheet(
             target = target,
             settings = settings,
+            machiningMaterials = machiningMaterials,
             onDismiss = { formTarget = null },
             onSave = { name, shape, dims, price, technicalMaterialId ->
                 onSaveMaterial(target.supplierId, target.existing, name, shape, dims, price, technicalMaterialId)
@@ -373,6 +374,7 @@ private fun MaterialRowCard(
 private fun MaterialFormSheet(
     target: FormTarget,
     settings: AppSettings,
+    machiningMaterials: List<MachiningMaterialEntity>,
     onDismiss: () -> Unit,
     onSave: suspend (String, Shape, Map<DimensionType, DimensionValue>, Double?, String?) -> Result<Unit>,
     onSaved: () -> Unit,
@@ -424,7 +426,6 @@ private fun MaterialFormSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val noTechnicalMaterialLabel = stringResource(R.string.form_technical_material_none)
-    val groupLabels = IsoGroup.entries.associateWith { it.name + " · " + isoName(it) }
     val shapeLabels = Shape.ALL.associateWith { candidate ->
         stringResource(shapeNameRes(candidate))
     }
@@ -466,7 +467,7 @@ private fun MaterialFormSheet(
                 Text(stringResource(R.string.form_technical_material).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = { technicalMaterialMenu = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        groupLabels.entries.firstOrNull { it.key.name == technicalMaterialId }?.value
+                        machiningMaterials.firstOrNull { it.id == technicalMaterialId }?.name
                             ?: noTechnicalMaterialLabel,
                         modifier = Modifier.weight(1f),
                     )
@@ -477,10 +478,10 @@ private fun MaterialFormSheet(
                         text = { Text(noTechnicalMaterialLabel) },
                         onClick = { technicalMaterialId = null; technicalMaterialMenu = false },
                     )
-                    IsoGroup.entries.forEach { group ->
+                    machiningMaterials.forEach { material ->
                         DropdownMenuItem(
-                            text = { Text(groupLabels.getValue(group)) },
-                            onClick = { technicalMaterialId = group.name; technicalMaterialMenu = false },
+                            text = { Text(material.group.name + " · " + material.name) },
+                            onClick = { technicalMaterialId = material.id; technicalMaterialMenu = false },
                         )
                     }
                 }

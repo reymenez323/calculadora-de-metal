@@ -19,7 +19,7 @@ class AppContainer(context: Context) {
         context.applicationContext,
         AppDatabase::class.java,
         AppDatabase.DATABASE_NAME,
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
+    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
 
     private val seeder = DefaultDataSeeder()
 
@@ -180,6 +180,27 @@ class AppContainer(context: Context) {
                         "(SELECT MIN(id) FROM tool_recommendations GROUP BY toolId, isoGroup)",
                 )
                 db.execSQL("DROP TABLE machining_materials")
+            }
+        }
+
+        /**
+         * Los materiales de mecanizado vuelven a ser individuales (con su dureza), cada uno con una
+         * categoría ISO (P, M, K, N, S, H). Los de fábrica se reponen al arrancar; los vínculos de
+         * las materias primas se restauran por nombre y las letras sueltas se descartan.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS machining_materials (" +
+                        "id TEXT NOT NULL, name TEXT NOT NULL, isoGroup TEXT NOT NULL, condition TEXT NOT NULL, " +
+                        "hardness TEXT NOT NULL, notes TEXT NOT NULL, isBuiltIn INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("UPDATE materials SET technicalMaterialId = NULL WHERE technicalMaterialId IN ('P', 'M', 'K', 'N', 'S', 'H')")
+                db.execSQL("UPDATE materials SET technicalMaterialId = 'a36' WHERE name = 'Acero negro (A36)'")
+                db.execSQL("UPDATE materials SET technicalMaterialId = 'ss304' WHERE name = 'Acero inoxidable 304'")
+                db.execSQL("UPDATE materials SET technicalMaterialId = 'ss316' WHERE name = 'Acero inoxidable 316'")
+                db.execSQL("UPDATE materials SET technicalMaterialId = 'al6061' WHERE name = 'Aluminio 6061'")
+                db.execSQL("UPDATE materials SET technicalMaterialId = 'al6063' WHERE name = 'Aluminio 6063'")
             }
         }
     }

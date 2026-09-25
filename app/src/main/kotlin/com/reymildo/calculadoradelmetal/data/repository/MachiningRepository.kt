@@ -3,20 +3,34 @@ package com.reymildo.calculadoradelmetal.data.repository
 import androidx.room.withTransaction
 import com.reymildo.calculadoradelmetal.data.local.AppDatabase
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
 import com.reymildo.calculadoradelmetal.domain.machining.ToolKind
+import java.util.UUID
 
-/** Herramientas de corte con sus valores de fabricante por grupo ISO. */
+/** Materiales a mecanizar (con su categoría ISO) y herramientas con sus valores de fabricante por categoría. */
 class MachiningRepository(private val db: AppDatabase) {
     private val dao = db.machiningDao()
 
+    fun observeMaterials() = dao.observeMaterials()
     fun observeTools() = dao.observeTools()
 
     /** Idempotente: repone lo de fábrica sin tocar lo que el usuario haya añadido. */
     suspend fun ensureDefaults() {
         db.withTransaction {
+            builtInMaterials.forEach { dao.insertMaterialIfAbsent(it) }
             if (dao.countBuiltInTools() == 0) builtInTools.forEach { dao.upsertTool(it) }
         }
+    }
+
+    suspend fun saveMaterial(material: MachiningMaterialEntity): Result<Unit> = runCatching {
+        require(material.name.isNotBlank())
+        val id = material.id.ifBlank { "custom_" + UUID.randomUUID().toString().take(8) }
+        dao.upsertMaterial(material.copy(id = id))
+    }
+
+    suspend fun deleteMaterial(material: MachiningMaterialEntity) {
+        if (!material.isBuiltIn) dao.deleteMaterial(material)
     }
 
     /** Guarda la herramienta y reemplaza en bloque sus valores de fabricante. */
@@ -36,6 +50,18 @@ class MachiningRepository(private val db: AppDatabase) {
     }
 
     companion object {
+        /** De fábrica, al menos uno por categoría ISO; el usuario añade los suyos. */
+        val builtInMaterials = listOf(
+            MachiningMaterialEntity("a36", "ASTM A36", "P", "Laminado", "≈ 119–159 HB", isBuiltIn = true),
+            MachiningMaterialEntity("ss304", "AISI 304", "M", "Recocido", "≤ 215 HB", isBuiltIn = true),
+            MachiningMaterialEntity("ss316", "AISI 316", "M", "Recocido", "≤ 217 HB", isBuiltIn = true),
+            MachiningMaterialEntity("gg25", "Fundición gris GG25", "K", "Fundido", "≈ 190–220 HB", isBuiltIn = true),
+            MachiningMaterialEntity("al6061", "Aluminio 6061", "N", "T6", "≈ 95 HB", isBuiltIn = true),
+            MachiningMaterialEntity("al6063", "Aluminio 6063", "N", "T6", "≈ 73 HB", isBuiltIn = true),
+            MachiningMaterialEntity("ti64", "Titanio Ti-6Al-4V", "S", "Recocido", "≈ 330 HB", isBuiltIn = true),
+            MachiningMaterialEntity("hrc55", "Acero templado 55 HRC", "H", "Templado", "≈ 55 HRC", isBuiltIn = true),
+        )
+
         val builtInTools = listOf(
             CuttingToolEntity(name = "HSS genérico", kind = ToolKind.HSS.name, machineType = "BOTH", isBuiltIn = true),
             CuttingToolEntity(name = "Inserto de carburo genérico", kind = ToolKind.CARBIDE_INSERT.name, machineType = "BOTH", isBuiltIn = true),

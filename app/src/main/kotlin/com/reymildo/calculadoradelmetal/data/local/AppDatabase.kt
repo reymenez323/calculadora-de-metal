@@ -8,6 +8,7 @@ import com.reymildo.calculadoradelmetal.data.local.dao.MaterialDao
 import com.reymildo.calculadoradelmetal.data.local.dao.SupplierDao
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.MaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.SupplierEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
@@ -17,10 +18,11 @@ import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEnti
         SupplierEntity::class,
         MaterialEntity::class,
         MachineProfileEntity::class,
+        MachiningMaterialEntity::class,
         CuttingToolEntity::class,
         ToolRecommendationEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

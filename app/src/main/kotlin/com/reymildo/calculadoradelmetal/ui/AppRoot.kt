@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.SupplierWithMaterials
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import com.reymildo.calculadoradelmetal.data.settings.AppSettings
@@ -85,6 +86,7 @@ fun AppRoot(container: AppContainer) {
         .observeSuppliersWithMaterials()
         .collectAsState(initial = emptyList())
     val machineProfiles by container.machineProfileRepository.observeAll().collectAsState(initial = emptyList())
+    val machiningMaterials by container.machiningRepository.observeMaterials().collectAsState(initial = emptyList())
     val tools by container.machiningRepository.observeTools().collectAsState(initial = emptyList())
 
     // El idioma se aplica a la Activity entera (MainActivity.attachBaseContext), no solo a este árbol:
@@ -105,7 +107,8 @@ fun AppRoot(container: AppContainer) {
     CalculadoraTheme {
         if (showSplash) {
             SplashScreen(
-                dataReady = loadedSettings != null && suppliers.isNotEmpty() && machineProfiles.isNotEmpty() && tools.isNotEmpty(),
+                dataReady = loadedSettings != null && suppliers.isNotEmpty() && machineProfiles.isNotEmpty() &&
+                    machiningMaterials.isNotEmpty() && tools.isNotEmpty(),
                 onFinished = { showSplash = false },
             )
         } else {
@@ -115,6 +118,7 @@ fun AppRoot(container: AppContainer) {
                     settings = settings,
                     suppliers = suppliers,
                     machineProfiles = machineProfiles,
+                    machiningMaterials = machiningMaterials,
                     tools = tools,
                 )
             }
@@ -128,6 +132,7 @@ private fun AppScaffold(
     settings: AppSettings,
     suppliers: List<SupplierWithMaterials>,
     machineProfiles: List<MachineProfileEntity>,
+    machiningMaterials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
 ) {
     var tab by rememberSaveable { mutableStateOf(Tab.CALC) }
@@ -262,6 +267,7 @@ private fun AppScaffold(
                 MachiningScreen(
                     mode = calcMode,
                     machines = machineProfiles,
+                    materials = machiningMaterials,
                     tools = tools,
                     modifier = Modifier.padding(padding),
                     onOpenMachines = {
@@ -279,6 +285,7 @@ private fun AppScaffold(
                 when (section) {
                     WorkshopSection.STOCK -> SuppliersScreen(
                         suppliers = suppliers,
+                        machiningMaterials = machiningMaterials,
                         settings = settings,
                         modifier = sectionModifier,
                         onSaveMaterial = { supplierId, existing, name, shape, dimensions, price, technicalMaterialId ->
@@ -322,7 +329,10 @@ private fun AppScaffold(
                     )
 
                     WorkshopSection.MACHINING -> MachiningLibraryScreen(
+                        materials = machiningMaterials,
                         tools = tools,
+                        onSaveMaterial = { container.machiningRepository.saveMaterial(it) },
+                        onDeleteMaterial = { material -> scope.launch { container.machiningRepository.deleteMaterial(material) } },
                         onSaveTool = { tool, recommendations -> container.machiningRepository.saveTool(tool, recommendations) },
                         onDeleteTool = { tool -> scope.launch { container.machiningRepository.deleteTool(tool) } },
                         modifier = sectionModifier,

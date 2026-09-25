@@ -44,6 +44,14 @@ class MachiningCatalogTest {
     }
 
     @Test
+    fun `built-in materials cover every ISO category and keep the historic ids`() {
+        val materials = MachiningRepository.builtInMaterials
+        assertEquals(IsoGroup.entries.toSet(), materials.map { it.group }.toSet())
+        assertTrue(materials.map { it.id }.containsAll(listOf("a36", "ss304", "ss316", "al6061", "al6063")))
+        assertTrue(materials.all { it.isBuiltIn && it.name.isNotBlank() })
+    }
+
+    @Test
     fun `user tool is bound to a single machine type`() {
         val insert = CuttingToolEntity(name = "CNMG", kind = ToolKind.CARBIDE_INSERT.name, machineType = MachineType.LATHE.name)
         assertTrue(insert.fits(MachineType.LATHE))

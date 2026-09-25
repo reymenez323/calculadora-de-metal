@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.entity.MachineProfileEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import com.reymildo.calculadoradelmetal.domain.machining.CuttingRecommendation
 import com.reymildo.calculadoradelmetal.domain.machining.FieldIssue
@@ -67,7 +68,8 @@ import com.reymildo.calculadoradelmetal.ui.calc.CalcMode
 import com.reymildo.calculadoradelmetal.ui.common.ChoiceTile
 import com.reymildo.calculadoradelmetal.ui.common.DropdownField
 import com.reymildo.calculadoradelmetal.ui.common.Fmt
-import com.reymildo.calculadoradelmetal.ui.common.IsoGroupPicker
+import com.reymildo.calculadoradelmetal.ui.common.IsoBadge
+import com.reymildo.calculadoradelmetal.ui.common.isoName
 import com.reymildo.calculadoradelmetal.ui.common.GlyphIcon
 import com.reymildo.calculadoradelmetal.ui.common.SectionCard
 import com.reymildo.calculadoradelmetal.ui.common.TileGrid
@@ -99,6 +101,7 @@ private fun resolveRecommendation(
 fun MachiningScreen(
     mode: CalcMode,
     machines: List<MachineProfileEntity>,
+    materials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
     onOpenMachines: () -> Unit,
     modifier: Modifier = Modifier,
@@ -117,7 +120,7 @@ fun MachiningScreen(
     val tool = compatibleTools.firstOrNull { it.tool.id == draft.toolId }
         ?: compatibleTools.firstOrNull { it.tool.isBuiltIn && it.tool.toolKind == defaultKind }
         ?: compatibleTools.firstOrNull()
-    val material = IsoGroup.entries.firstOrNull { it.name == draft.materialId } ?: IsoGroup.P
+    val material = materials.firstOrNull { it.id == draft.materialId } ?: materials.firstOrNull()
 
     // Coherencia de los valores: cada problema se marca en su campo y se resume abajo.
     val issues = MachiningValidator.validate(
@@ -130,7 +133,7 @@ fun MachiningScreen(
         },
         intValue = { key -> draft.fields[key]?.toIntOrNull() },
         machine = machine?.toLimits(),
-        recommendation = resolveRecommendation(tool, material, turning),
+        recommendation = resolveRecommendation(tool, material?.group, turning),
     )
     val issueMap = issues.groupBy { it.key }.mapValues { (_, list) -> list.minBy { it.severity.ordinal } }
     val errors = issues.filter { it.severity == IssueSeverity.ERROR }
@@ -188,26 +191,31 @@ fun MachiningScreen(
         }
 
         SectionCard(title = stringResource(R.string.mach_step_material_tool)) {
-            if (tool == null) {
+            if (material == null || tool == null) {
                 Text(stringResource(R.string.mach_no_profiles), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Text(
-                    stringResource(R.string.mach_technical_material).uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                val materialLabels = materials.associate { it.id to (it.group.name + " · " + listOf(it.name, it.condition).filter { part -> part.isNotBlank() }.joinToString(" · ")) }
+                DropdownField(
+                    label = stringResource(R.string.mach_technical_material),
+                    selected = materialLabels.getValue(material.id),
+                    options = materials.map { it.id to materialLabels.getValue(it.id) },
+                    onSelect = { id -> update { it.copy(materialId = id, recommendationApplied = false) } },
                 )
-                IsoGroupPicker(
-                    selected = material,
-                    taken = emptySet(),
-                    onSelect = { picked -> update { it.copy(materialId = picked.name, recommendationApplied = false) } },
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IsoBadge(material.group, size = 24.dp)
+                    Text(
+                        isoName(material.group) + (if (material.hardness.isNotBlank()) " · " + material.hardness else ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 DropdownField(
                     label = stringResource(R.string.mach_tool),
                     selected = tool.tool.name,
                     options = compatibleTools.map { it.tool.id.toString() to it.tool.name },
                     onSelect = { id -> update { it.copy(toolId = id.toLongOrNull(), recommendationApplied = false) } },
                 )
-                val recommendation = resolveRecommendation(tool, material, turning)
+                val recommendation = resolveRecommendation(tool, material?.group, turning)
                 if (recommendation != null) {
                     Text(
                         text = stringResource(
@@ -245,7 +253,7 @@ fun MachiningScreen(
                     ) { Text(stringResource(R.string.mach_apply_recommendation)) }
                     Text(
                         text = if (recommendation.source == RecommendationSource.MANUFACTURER) {
-                            stringResource(R.string.mach_recommendation_manufacturer, tool.tool.name, recommendation.isoCode ?: material.name)
+                            stringResource(R.string.mach_recommendation_manufacturer, tool.tool.name, recommendation.isoCode ?: material.group.name)
                         } else {
                             stringResource(R.string.mach_recommendation_generic)
                         },

@@ -44,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reymildo.calculadoradelmetal.R
 import com.reymildo.calculadoradelmetal.data.local.entity.CuttingToolEntity
+import com.reymildo.calculadoradelmetal.data.local.entity.MachiningMaterialEntity
 import com.reymildo.calculadoradelmetal.data.local.entity.ToolRecommendationEntity
 import com.reymildo.calculadoradelmetal.data.local.relation.ToolWithRecommendations
 import com.reymildo.calculadoradelmetal.domain.machining.IsoGroup
@@ -88,7 +89,10 @@ private fun machineTypeLabel(type: String): String = stringResource(
 
 @Composable
 fun MachiningLibraryScreen(
+    materials: List<MachiningMaterialEntity>,
     tools: List<ToolWithRecommendations>,
+    onSaveMaterial: suspend (MachiningMaterialEntity) -> Result<Unit>,
+    onDeleteMaterial: (MachiningMaterialEntity) -> Unit,
     onSaveTool: suspend (CuttingToolEntity, List<ToolRecommendationEntity>) -> Result<Long>,
     onDeleteTool: (CuttingToolEntity) -> Unit,
     modifier: Modifier = Modifier,
@@ -115,20 +119,28 @@ fun MachiningLibraryScreen(
         if (showTools) {
             ToolsList(tools, onSaveTool, onDeleteTool, Modifier.weight(1f))
         } else {
-            MaterialsList(Modifier.weight(1f))
+            MaterialsList(materials, onSaveMaterial, onDeleteMaterial, Modifier.weight(1f))
         }
     }
 }
 
-/** Los materiales de mecanizado son los seis grupos ISO, uno por letra, en formato compacto. */
 @Composable
-private fun MaterialsList(modifier: Modifier) {
-    val names = IsoGroup.entries.associateWith { isoName(it) }
-    val descriptions = IsoGroup.entries.associateWith { isoDescription(it) }
+private fun MaterialsList(
+    materials: List<MachiningMaterialEntity>,
+    onSave: suspend (MachiningMaterialEntity) -> Result<Unit>,
+    onDelete: (MachiningMaterialEntity) -> Unit,
+    modifier: Modifier,
+) {
+    var editing by remember { mutableStateOf<MachiningMaterialEntity?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<MachiningMaterialEntity?>(null) }
+    val builtInLabel = stringResource(R.string.sup_builtin)
+    val groupNames = IsoGroup.entries.associateWith { isoName(it) }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(key = "hint") {
             Text(
@@ -137,30 +149,116 @@ private fun MaterialsList(modifier: Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        items(count = IsoGroup.entries.size, key = { IsoGroup.entries[it].name }) { index ->
-            val group = IsoGroup.entries[index]
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    IsoBadge(group, size = 40.dp)
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(names.getValue(group), style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            descriptions.getValue(group),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+        items(count = materials.size, key = { materials[it].id }) { index ->
+            val material = materials[index]
+            LibraryCard(
+                glyph = Glyph.MATERIAL_CUBE,
+                iso = material.group,
+                title = material.name,
+                tags = buildList {
+                    add(material.group.name + " · " + groupNames.getValue(material.group) to true)
+                    if (material.isBuiltIn) add(builtInLabel to false)
+                },
+                detail = listOf(material.condition, material.hardness).filter { it.isNotBlank() }.joinToString(" · "),
+                onEdit = { editing = material },
+                onDelete = if (material.isBuiltIn) null else ({ deleteTarget = material }),
+            )
+        }
+        item(key = "add") {
+            AddButton(stringResource(R.string.lib_add_material)) { creating = true }
+        }
+    }
+
+    if (creating || editing != null) {
+        MaterialFormSheet(editing, onDismiss = { creating = false; editing = null }, onSave = onSave)
+    }
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text(stringResource(R.string.lib_delete_material_title)) },
+            text = { Text(stringResource(R.string.lib_delete_material_body, target.name)) },
+            confirmButton = { Button(onClick = { onDelete(target); deleteTarget = null }) { Text(stringResource(R.string.material_delete_confirm)) } },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.common_cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun MaterialFormSheet(
+    existing: MachiningMaterialEntity?,
+    onDismiss: () -> Unit,
+    onSave: suspend (MachiningMaterialEntity) -> Result<Unit>,
+) {
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var group by remember { mutableStateOf(existing?.group ?: IsoGroup.P) }
+    var condition by remember { mutableStateOf(existing?.condition ?: "") }
+    var hardness by remember { mutableStateOf(existing?.hardness ?: "") }
+    var notes by remember { mutableStateOf(existing?.notes ?: "") }
+    var nameError by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Text(
+                stringResource(if (existing == null) R.string.lib_new_material else R.string.lib_edit_material),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            OutlinedTextField(
+                name, { name = it; nameError = false }, Modifier.fillMaxWidth(), singleLine = true, isError = nameError,
+                label = { Text(stringResource(R.string.form_name)) },
+                placeholder = { Text(stringResource(R.string.lib_material_name_hint)) },
+                shape = RoundedCornerShape(13.dp),
+            )
+            SectionCard(title = stringResource(R.string.lib_material_group)) {
+                IsoGroupPicker(selected = group, taken = emptySet(), onSelect = { group = it })
+                Text(
+                    stringResource(R.string.lib_material_group_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    condition, { condition = it }, Modifier.weight(1f), singleLine = true,
+                    label = { Text(stringResource(R.string.lib_material_condition)) }, placeholder = { Text("T6, recocido…") },
+                    shape = RoundedCornerShape(13.dp),
+                )
+                OutlinedTextField(
+                    hardness, { hardness = it }, Modifier.weight(1f), singleLine = true,
+                    label = { Text(stringResource(R.string.lib_material_hardness)) }, placeholder = { Text("≈ 95 HB · 55 HRC") },
+                    shape = RoundedCornerShape(13.dp),
+                )
+            }
+            OutlinedTextField(
+                notes, { notes = it }, Modifier.fillMaxWidth(), minLines = 2,
+                label = { Text(stringResource(R.string.machines_form_notes)) },
+                shape = RoundedCornerShape(13.dp),
+            )
+            Button(
+                onClick = {
+                    if (name.isBlank()) { nameError = true; return@Button }
+                    scope.launch {
+                        onSave(
+                            MachiningMaterialEntity(
+                                id = existing?.id ?: "",
+                                name = name.trim(),
+                                isoGroup = group.name,
+                                condition = condition.trim(),
+                                hardness = hardness.trim(),
+                                notes = notes.trim(),
+                                isBuiltIn = existing?.isBuiltIn ?: false,
+                            ),
+                        ).onSuccess { onDismiss() }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp),
+            ) { Text(stringResource(R.string.form_save_changes), style = MaterialTheme.typography.labelLarge) }
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
@@ -248,6 +346,7 @@ private fun LibraryCard(
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     isoCodes: List<String> = emptyList(),
+    iso: IsoGroup? = null,
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -260,7 +359,7 @@ private fun LibraryCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            GlyphIcon(glyph, MaterialTheme.colorScheme.primary, size = 32.dp)
+            if (iso != null) IsoBadge(iso, size = 36.dp) else GlyphIcon(glyph, MaterialTheme.colorScheme.primary, size = 32.dp)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

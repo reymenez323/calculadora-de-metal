@@ -71,7 +71,7 @@
     <string name="form_shape">Shape it is sold in</string>
     <string name="form_stock_dims">Raw stock dimensions</string>
     <string name="form_price">Stock cost</string>
-    <string name="form_technical_material">ISO group for machining</string>
+    <string name="form_technical_material">Machining material</string>
     <string name="form_technical_material_none">Not linked</string>
     <string name="form_rate">Resulting cost per cm³</string>
     <string name="form_save">Add material</string>
@@ -134,7 +134,7 @@
     <string name="mach_metric">Metric</string>
     <string name="mach_imperial">Imperial</string>
     <string name="mach_cutting_data">Material and tool</string>
-    <string name="mach_technical_material">Material group (ISO)</string>
+    <string name="mach_technical_material">Machining material</string>
     <string name="mach_recommendation_range">Starting range: Vc %1$s–%2$s m/min · feed %3$s–%4$s mm</string>
     <string name="mach_apply_recommendation">Apply starting value</string>
     <string name="mach_machine_limits">Maximum: %1$s RPM · %2$s mm/min</string>
@@ -257,7 +257,7 @@
     <string name="unit_mm_per_tooth">mm/tooth</string>
     <string name="lib_materials">Materials</string>
     <string name="lib_tools">Tools and inserts</string>
-    <string name="lib_materials_hint">Materials are classified in the six ISO groups, like in tool catalogs: P steel, M stainless, K cast iron, N non-ferrous, S superalloys and H hardened.</string>
+    <string name="lib_materials_hint">Materials to machine. Only their cutting characteristics matter: no cost, size or supplier. Each one is classified in an ISO category (P, M, K, N, S, H).</string>
     <string name="lib_tools_hint">Your inserts and tools with manufacturer values per ISO group. Without that data the conservative generic HSS and carbide profiles are used.</string>
     <string name="lib_add_tool">+ Add tool or insert</string>
     <string name="lib_delete_tool_title">Delete tool?</string>
@@ -336,4 +336,14 @@
     <string name="mach_radial_pct">Radial width (% of diameter)</string>
     <string name="issue_rpm_over_max">Exceeds the machine\'s maximum RPM (%1$s): it will be limited.</string>
     <string name="issue_feed_over_max">Exceeds the machine\'s maximum feed (%1$s): it will be limited.</string>
+    <string name="lib_new_material">New machining material</string>
+    <string name="lib_edit_material">Edit machining material</string>
+    <string name="lib_material_name_hint">E.g. AISI 4140</string>
+    <string name="lib_material_condition">Condition</string>
+    <string name="lib_material_hardness">Hardness</string>
+    <string name="lib_add_material">+ Add material</string>
+    <string name="lib_delete_material_title">Delete material?</string>
+    <string name="lib_delete_material_body">“%1$s” will be deleted.</string>
+    <string name="lib_material_group">ISO category</string>
+    <string name="lib_material_group_hint">The category decides which manufacturer values of your inserts apply to this material; if the insert has no data for it, the conservative generic values are used. Hardness (HB or HRC) is informational: use it to tell apart materials of the same category.</string>
 </resources>

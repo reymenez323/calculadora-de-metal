@@ -71,7 +71,7 @@
     <string name="form_shape">Forma en que se vende</string>
     <string name="form_stock_dims">Medidas del material en bruto</string>
     <string name="form_price">Costo del bruto</string>
-    <string name="form_technical_material">Grupo ISO para mecanizado</string>
+    <string name="form_technical_material">Material técnico para mecanizado</string>
     <string name="form_technical_material_none">Sin vincular</string>
     <string name="form_rate">Costo por cm³ resultante</string>
     <string name="form_save">Añadir material</string>
@@ -134,7 +134,7 @@
     <string name="mach_metric">Métrico</string>
     <string name="mach_imperial">Imperial</string>
     <string name="mach_cutting_data">Material y herramienta</string>
-    <string name="mach_technical_material">Grupo de material (ISO)</string>
+    <string name="mach_technical_material">Material técnico</string>
     <string name="mach_recommendation_range">Rango inicial: Vc %1$s–%2$s m/min · avance %3$s–%4$s mm</string>
     <string name="mach_apply_recommendation">Aplicar valor inicial</string>
     <string name="mach_machine_limits">Máximo: %1$s RPM · %2$s mm/min</string>
@@ -257,7 +257,7 @@
     <string name="unit_mm_per_tooth">mm/diente</string>
     <string name="lib_materials">Materiales</string>
     <string name="lib_tools">Herramientas e insertos</string>
-    <string name="lib_materials_hint">Los materiales se clasifican en los seis grupos ISO, igual que en los catálogos de herramientas: P acero, M inoxidable, K fundición, N no ferrosos, S superaleaciones y H endurecidos.</string>
+    <string name="lib_materials_hint">Materiales a mecanizar. Solo importan sus características de corte: sin costo, medidas ni proveedor. Cada uno se clasifica en una categoría ISO (P, M, K, N, S, H).</string>
     <string name="lib_tools_hint">Tus insertos y herramientas con los valores del fabricante por grupo ISO. Sin esos datos se usan los perfiles genéricos conservadores de HSS y carburo.</string>
     <string name="lib_add_tool">+ Añadir herramienta o inserto</string>
     <string name="lib_delete_tool_title">¿Eliminar herramienta?</string>
@@ -336,4 +336,14 @@
     <string name="mach_radial_pct">Ancho radial (% del diámetro)</string>
     <string name="issue_rpm_over_max">Supera las RPM máximas de la máquina (%1$s): se limitarán.</string>
     <string name="issue_feed_over_max">Supera el avance máximo de la máquina (%1$s): se limitará.</string>
+    <string name="lib_new_material">Nuevo material de mecanizado</string>
+    <string name="lib_edit_material">Editar material de mecanizado</string>
+    <string name="lib_material_name_hint">Ej. AISI 4140</string>
+    <string name="lib_material_condition">Estado</string>
+    <string name="lib_material_hardness">Dureza</string>
+    <string name="lib_add_material">+ Añadir material</string>
+    <string name="lib_delete_material_title">¿Eliminar material?</string>
+    <string name="lib_delete_material_body">Se eliminará “%1$s”.</string>
+    <string name="lib_material_group">Categoría ISO</string>
+    <string name="lib_material_group_hint">La categoría decide qué valores del fabricante de tus insertos se aplican a este material; si el inserto no tiene datos para ella se usan los genéricos conservadores. La dureza (HB o HRC) es informativa: úsala para distinguir materiales de una misma categoría.</string>
 </resources>
